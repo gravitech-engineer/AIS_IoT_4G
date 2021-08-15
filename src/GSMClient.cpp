@@ -4,10 +4,95 @@
 
 struct {
     bool itUsing = false;
+    bool connected = false;
 } ClientSocketInfo[10];
 
+EventGroupHandle_t _gsm_client_flags = NULL;
+
+#define GSM_CLIENT_CONNECTED_FLAG          (1 << 0)
+#define GSM_CLIENT_CONNECT_FAIL_FLAG       (1 << 1)
+#define GSM_CLIENT_DISCONNAECTED_FLAG      (1 << 2)
+#define GSM_CLIENT_DISCONNAECT_FAIL_FLAG   (1 << 3)
+
+bool setupURC = false;
+int check_socket_id = 0;
+
 GSMClient::GSMClient() {
-    
+    if (!_gsm_client_flags) {
+        _gsm_client_flags = xEventGroupCreate();
+        if (!_gsm_client_flags) {
+            GSM_LOG_E("Evant flag of GSM Client create fail");
+        }
+    }
+
+    if (!setupURC) {
+        _SIM_Base.URCRegister("+CIPOPEN", [](String urcText) {
+            int res_socket_id = -1, res_status = -1;
+            if (sscanf(urcText.c_str(), "+CIPOPEN: %d,%d", &res_socket_id, &res_status) != 2) {
+                GSM_LOG_E("Respont format error");
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG);
+                return;
+            }
+            
+            if (res_socket_id != check_socket_id) {
+                GSM_LOG_E("Respont socket id wrong");
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG);
+                return;
+            }
+
+            if (res_status != 0) {
+                GSM_LOG_E("Connect fail, error code: %d", res_status);
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG);
+                return;
+            }
+            
+            xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECTED_FLAG);
+        });
+
+        _SIM_Base.URCRegister("+CIPCLOSE", [](String urcText) {
+            int socket_id = -1, error = -1;
+            if (sscanf(urcText.c_str(), "+CIPCLOSE: %d,%d", &socket_id, &error) != 2) {
+                GSM_LOG_E("Close status format fail");
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECT_FAIL_FLAG);
+                return;
+            }
+
+            if ((socket_id < 0) || (socket_id > 9)) {
+                GSM_LOG_E("Socket %d is out of range", socket_id);
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECT_FAIL_FLAG);
+                return;
+            }
+
+            if (error != 0) {
+                GSM_LOG_I("Socket %d close error code: %d", socket_id, error);
+            }
+
+            GSM_LOG_I("Socket %d is close", socket_id);
+            ClientSocketInfo[socket_id].connected = false;
+            xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECTED_FLAG);
+        });
+
+        _SIM_Base.URCRegister("+IPCLOSE", [](String urcText) {
+            int socket_id = -1, close_because = -1;
+            if (sscanf(urcText.c_str(), "+IPCLOSE: %d,%d", &socket_id, &close_because) != 2) {
+                GSM_LOG_E("Close status format fail");
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECT_FAIL_FLAG);
+                return;
+            }
+
+            if ((socket_id < 0) || (socket_id > 9)) {
+                GSM_LOG_E("Socket %d is out of range", socket_id);
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECT_FAIL_FLAG);
+                return;
+            }
+
+            GSM_LOG_I("Socket %d is close bacause %d", socket_id, close_because);
+            ClientSocketInfo[socket_id].connected = false;
+            xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECTED_FLAG);
+        });
+
+        setupURC = true;
+    }
 }
 
 int GSMClient::connect(IPAddress ip, uint16_t port, int32_t timeout) {
@@ -45,7 +130,7 @@ int GSMClient::connect(const char *host, uint16_t port, int32_t timeout) {
     }
     xQueueReset(rxQueue);
 
-    if (!_SIM_Base.sendCommandCheckRespond("AT+CIPTIMEOUT=" + String(timeout) + "," + String(timeout) + "," + String(timeout))) {
+    if (!_SIM_Base.sendCommandFindOK("AT+CIPTIMEOUT=" + String(timeout) + "," + String(timeout) + "," + String(timeout))) {
         GSM_LOG_E("Set timeout error");
     }
 
@@ -54,34 +139,29 @@ int GSMClient::connect(const char *host, uint16_t port, int32_t timeout) {
         return -2;
     }
 
-    String connectStatusBuffer = "";
-    if (!_SIM_Base.sendCommandGetRespondOneLine("AT+CIPOPEN=" + String(this->sock_id) + ",\"TCP\",\"" + String(host) + "\"," + String(port), &connectStatusBuffer, timeout)) {
+    check_socket_id = this->sock_id;
+    if (!_SIM_Base.sendCommandFindOK("AT+CIPOPEN=" + String(this->sock_id) + ",\"TCP\",\"" + String(host) + "\"," + String(port), timeout)) {
         GSM_LOG_E("Send connect TCP/IP error");
         return -1; // Timeout
     }
 
-    int res_socket_id = -1, res_status = -1;
-    if (sscanf(connectStatusBuffer.c_str(), "+CIPOPEN: %d,%d", &res_socket_id, &res_status) != 2) {
-        GSM_LOG_E("Respont format error");
-        return -4; // INVALID_RESPONSE
-    }
-
-    if (res_socket_id != this->sock_id) {
-        GSM_LOG_E("Respont socket id wrong");
-        return -4; // INVALID_RESPONSE
-    }
-
-    if (res_status != 0) {
-        GSM_LOG_E("Connect fail, error code: %d", res_status);
+    EventBits_t flags = xEventGroupWaitBits(_gsm_client_flags, GSM_CLIENT_CONNECTED_FLAG || GSM_CLIENT_CONNECT_FAIL_FLAG, pdTRUE, pdFALSE, (timeout + 3000) / portTICK_PERIOD_MS);
+    if (flags & GSM_CLIENT_CONNECTED_FLAG) {
+        GSM_LOG_I("Socket %d connected", this->sock_id);
+    } else if (flags & GSM_CLIENT_CONNECT_FAIL_FLAG) {
+        GSM_LOG_I("Socket %d connect fail", this->sock_id);
         return -3; // TRUNCATED
+    } else {
+        GSM_LOG_E("Socket %d wait respont timeout", this->sock_id);
+        return -1; // Timeout
     }
 
-    if (!_SIM_Base.sendCommandCheckRespond("AT+CIPRXGET=1")) {
-        GSM_LOG_E("Set get the network data manual fail");
+    if (!_SIM_Base.sendCommandFindOK("AT+CIPRXGET=1")) {
+        GSM_LOG_E("Socket %d set get the network data manual fail", this->sock_id);
     }
 
     GSM_LOG_I("Connected !");
-    this->_connected = true;
+    ClientSocketInfo[this->sock_id].connected = true;
 
     return 1;
 }
@@ -91,7 +171,7 @@ size_t GSMClient::write(uint8_t c) {
 }
 
 size_t GSMClient::write(const uint8_t *buf, size_t size) {
-    if (!this->_connected) {
+    if (!ClientSocketInfo[this->sock_id].connected) {
         return 0;
     }
 
@@ -323,40 +403,42 @@ void GSMClient::flush() { // Not support
 }
 
 uint8_t GSMClient::connected() {
-    return this->_connected;
+    return ClientSocketInfo[this->sock_id].connected;
 }
 
 GSMClient::operator bool() {
-    return this->_connected;
+    return ClientSocketInfo[this->sock_id].connected;
 }
 
 void GSMClient::stop() {
-    if (this->sock_id == -1) {
+    if (this->sock_id < 0 || this->sock_id > 9) {
         return;
     }
 
-    vQueueDelete(rxQueue);
-
-    String disonnectStatusBuffer = "";
-    if (!_SIM_Base.sendCommandGetRespondOneLine("AT+CIPCLOSE=" + String(this->sock_id), &disonnectStatusBuffer, 500)) {
-        GSM_LOG_E("Send disconnect TCP/IP error");
-        return; // Timeout
+    if (rxQueue) {
+        vQueueDelete(rxQueue);
     }
 
-    int res_socket_id = -1, res_error = -1;
-    if (sscanf(disonnectStatusBuffer.c_str(), "+CIPCLOSE: %d,%d", &res_socket_id, &res_error) != 2) {
-        GSM_LOG_E("TCP/IP disconnect response format error");
-        return;
+    if (ClientSocketInfo[this->sock_id].connected) {
+        xEventGroupClearBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECTED_FLAG | GSM_CLIENT_DISCONNAECT_FAIL_FLAG);
+        
+        if (!_SIM_Base.sendCommandFindOK("AT+CIPCLOSE=" + String(this->sock_id), 500)) {
+            GSM_LOG_E("Send disconnect TCP/IP error");
+            return; // Timeout
+        }
+
+        EventBits_t flags = xEventGroupWaitBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECTED_FLAG || GSM_CLIENT_DISCONNAECT_FAIL_FLAG, pdTRUE, pdFALSE, 500 / portTICK_PERIOD_MS);
+        if (flags & GSM_CLIENT_DISCONNAECTED_FLAG) {
+            GSM_LOG_I("Socket %d disconnected", this->sock_id);
+        } else if (flags & GSM_CLIENT_DISCONNAECT_FAIL_FLAG) {
+            GSM_LOG_I("Socket %d disconnect fail", this->sock_id);
+        } else {
+            GSM_LOG_E("Socket %d wait respont timeout", this->sock_id);
+        }
     }
 
-    if (res_error == 0) {
-        GSM_LOG_I("Disconnect TCP/IP socket : %d", this->sock_id);
-        this->_connected = false;
-        ClientSocketInfo[this->sock_id].itUsing = false;
-        this->sock_id = -1;
-    } else {
-        GSM_LOG_I("Disconnect TCP/IP socket %d error code: %d", this->sock_id, res_error);
-    }
+    ClientSocketInfo[this->sock_id].itUsing = false;
+    this->sock_id = -1;
 }
 
 GSMClient::~GSMClient() {

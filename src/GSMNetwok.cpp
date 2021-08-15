@@ -81,23 +81,6 @@ bool GSMNetwork::networkOpen(uint32_t timeout) {
 
     GSM_LOG_E("Get status of NETOPEN timeout (2)");
     return false;
-
-
-
-
-
-    String net_open_status = "";
-    if (!_SIM_Base.sendCommandGetRespondOneLine("AT+NETOPEN", &net_open_status, timeout + 3000)) {
-        GSM_LOG_E("NET Open error : %s", net_open_status.c_str());
-    }
-
-    int error = -1;
-    if (sscanf(net_open_status.c_str(), "+NETOPEN: %d", &error) != 1) {
-        GSM_LOG_E("NET Open format fail");
-        return false;
-    }
-    
-    return error == 0;
 }
 
 bool net_closeed = true;
@@ -134,27 +117,6 @@ bool GSMNetwork::networkClose() {
 
     GSM_LOG_E("Get status of NET Close timeout (2)");
     return false;
-
-
-
-
-
-
-
-
-
-    String net_close_status = "";
-    if (!_SIM_Base.sendCommandGetRespondOneLine("AT+NETCLOSE", &net_close_status, 3000)) {
-        GSM_LOG_E("NET Close error : %s", net_close_status.c_str());
-    }
-
-    int error = -1;
-    if (sscanf(net_close_status.c_str(), "+NETCLOSE: %d", &error) != 1) {
-        GSM_LOG_E("NET Close format fail");
-        return false;
-    }
-    
-    return error == 0;
 }
 
 GSMNetwork Network;

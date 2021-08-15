@@ -381,7 +381,7 @@ void URCServiceTask(void*) {
         GIVE_USE_SERIAL;
         for (int i=0;i<read_len;i++) {
             char c = buff[i];
-            GSM_LOG_I("Rev: %c", c);
+            // GSM_LOG_I("Rev: %c", c);
             if (state == 0) {
                 if (c == '\r') {
                     if (commandRecheckBuff.length() > 0) {
