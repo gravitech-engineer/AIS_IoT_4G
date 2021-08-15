@@ -6,7 +6,8 @@
 
 class GSMNetwork {
     public:
-
+        GSMNetwork() ;
+        
         // PDP
         bool isNetworkOpen() ;
         bool networkOpen(uint32_t timeout = 30000) ;

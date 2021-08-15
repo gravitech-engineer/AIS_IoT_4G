@@ -15,6 +15,7 @@ bool SIM76XX::begin() {
     if (!init_serial) {
         _SIM_Base.setTimeout(100);
         _SIM_Base.begin(115200, SERIAL_8N1, rx_pin, tx_pin);
+        _SIM_Base.URCServiceStart();
         init_serial = true;
         delay(50);
     }
@@ -86,8 +87,6 @@ bool SIM76XX::begin() {
     if (!sim_is_ready) {
         return false;
     }
-
-    _SIM_Base.URCServiceStart();
 
     // Configs
     GSM_LOG_I("Network close... ");

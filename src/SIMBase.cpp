@@ -1,6 +1,19 @@
 #include "SIMBase.h"
 #include "GSM_LOG.h"
 
+EventGroupHandle_t _urc_flags = NULL;
+TaskHandle_t URCServiceTaskHandle = NULL;
+SemaphoreHandle_t _serial_mutex = NULL;
+
+void URCServiceTask(void*) ;
+
+#define URC_OK_FLAG              (1 << 0)
+#define URC_ERROR_FLAG           (1 << 1)
+#define URC_COMMAND_RECHECK_FLAG (1 << 2)
+
+#define TAKE_USE_SERIAL xSemaphoreTake(_serial_mutex, portMAX_DELAY)
+#define GIVE_USE_SERIAL xSemaphoreGive(_serial_mutex)
+
 bool SIMBase::readStringWithTimeout(String *out, uint32_t size, uint32_t timeout) {
     uint32_t beforeTimeout = this->getTimeout();
     this->setTimeout(timeout);
@@ -46,18 +59,31 @@ bool SIMBase::wait(String str, uint32_t timeout) {
 }
 
 bool SIMBase::send(String str) {
-    while(this->available()) (void)this->read();
-
+    TAKE_USE_SERIAL;
     this->print(str);
+    GIVE_USE_SERIAL;
 
     return true;
 }
 
-bool SIMBase::sendCommand(String cmd, uint32_t timeout) {
-    String finalCommand = cmd + "\r";
-    this->send(finalCommand);
+String lastCommand;
 
-    return this->wait(finalCommand, timeout);
+bool SIMBase::sendCommand(String cmd, uint32_t timeout) {
+    GSM_LOG_I("Send : %s", cmd.c_str());
+    lastCommand = cmd;
+
+    xEventGroupClearBits(_urc_flags, URC_COMMAND_RECHECK_FLAG);
+
+    this->send(cmd + "\r");
+
+    // return this->wait(finalCommand, timeout);
+    EventBits_t flags = xEventGroupWaitBits(_urc_flags, URC_COMMAND_RECHECK_FLAG, pdTRUE, pdFALSE, timeout);
+    if (flags & URC_COMMAND_RECHECK_FLAG) {
+        return true;
+    }
+
+    GSM_LOG_E("Wait command recheck %s timeout in %d ms", cmd.c_str(), timeout);
+    return false;
 }
 
 
@@ -66,7 +92,8 @@ bool SIMBase::sendCommandFindOK(String cmd, uint32_t timeout) {
         return false;
     }
 
-    return this->wait("\r\nOK\r\n", timeout);
+    // return this->wait("\r\nOK\r\n", timeout);
+    return _SIM_Base.waitOKorERROR(timeout) == 1;
 }
 
 bool SIMBase::sendCommandGetRespondOneLine(String cmd, String* respond, uint32_t timeout) {
@@ -158,9 +185,6 @@ bool SIMBase::sendCommandCheckRespond(String cmd, uint32_t timeout) {
     return false;
 }
 
-EventGroupHandle_t _urc_flags = NULL;
-TaskHandle_t URCServiceTaskHandle = NULL;
-
 bool SIMBase::URCServiceStart() {
     if (!_urc_flags) {
         _urc_flags = xEventGroupCreate();
@@ -170,14 +194,23 @@ bool SIMBase::URCServiceStart() {
         }
     }
 
+    if (!_serial_mutex) {
+        _serial_mutex = xSemaphoreCreateMutex();
+        if (!_serial_mutex) {
+            GSM_LOG_E("Mutex of URC create fail");
+            return false;
+        }
+    }
+
     if (!URCServiceTaskHandle) {
-        BaseType_t xReturned = xTaskCreate(
+        BaseType_t xReturned = xTaskCreatePinnedToCore(
             URCServiceTask,       /* Function that implements the task. */
             "URCService",         /* Text name for the task. */
-            (4 * 1024) / 4,       /* Stack size in words, not bytes. */
+            (8 * 1024) / 4,       /* Stack size in words, not bytes. */
             NULL,                 /* Parameter passed into the task. */
             10,                   /* Priority at which the task is created. */
-            &URCServiceTaskHandle /* Used to pass out the created task's handle. */
+            &URCServiceTaskHandle,/* Used to pass out the created task's handle. */
+            1                     // Core 1
         );
 
         if (xReturned != pdPASS) {
@@ -203,21 +236,31 @@ URCRegister_node *getURCRegisterLastNode() {
         return NULL;
     }
 
-    while(last_node->next) {
-        last_node = (URCRegister_node*)last_node->next;
+    while(last_node != NULL) {
+        if (last_node->next) {
+            last_node = (URCRegister_node*)last_node->next;
+        } else {
+            break;
+        }
     }
 
     return last_node;
 }
 
-URCRegister_node *getURCRegisterNodeByStart(String start) {
+URCRegister_node *getURCRegisterNodeByStart(String urc_text) {
     URCRegister_node *last_node = _urc_first_node;
     if (last_node == NULL) {
         return NULL;
     }
 
-    while(!last_node->start.startsWith(start)) {
-        last_node = (URCRegister_node*)last_node->next;
+    while(last_node != NULL) {
+        // GSM_LOG_I("Find node : %s", last_node->start.c_str());
+        if (urc_text.startsWith(last_node->start)) {
+            // GSM_LOG_I("Found node : %s", last_node->start.c_str());
+            break;
+        } else {
+            last_node = (URCRegister_node*)last_node->next;
+        }
     }
 
     return last_node;
@@ -276,15 +319,12 @@ uint16_t SIMBase::getDataAfterIt(uint8_t *buff, uint32_t len, uint32_t timeout) 
     uint32_t beforeTimeout = this->getTimeout();
     this->setTimeout(timeout);
 
-    uint16_t len = this->readBytes(buff, len);
+    uint16_t real_read_len = this->readBytes(buff, len);
 
     this->setTimeout(beforeTimeout);
 
-    return len;
+    return real_read_len;
 }
-
-#define URC_OK_FLAG    (1 << 0)
-#define URC_ERROR_FLAG (1 << 1)
 
 int8_t SIMBase::waitOKorERROR(uint32_t timeout) {
     if (!_urc_flags) {
@@ -303,6 +343,9 @@ int8_t SIMBase::waitOKorERROR(uint32_t timeout) {
 }
 
 void URCProcess(String data) {
+    GSM_LOG_I("URC Process data: %s", data.c_str());
+    // return;
+
     if (data == "OK") {
         xEventGroupSetBits(_urc_flags, URC_OK_FLAG);
     } else if (data == "ERROR") {
@@ -321,14 +364,38 @@ void URCProcess(String data) {
 
 void URCServiceTask(void*) {
     uint8_t state = 0;
+    String commandRecheckBuff = "";
     String responseBuff = "";
+    int read_len;
     while(1) {
-        while (_SIM_Base.available()) {
-            char c = _SIM_Base.read();
+        TAKE_USE_SERIAL;
+        read_len = _SIM_Base.available();
+        GIVE_USE_SERIAL;
+        if (read_len == 0) {
+            delay(10);
+            continue;
+        }
+        char *buff = (char*)malloc(read_len);
+        TAKE_USE_SERIAL;
+        read_len = _SIM_Base.readBytes(buff, read_len);
+        GIVE_USE_SERIAL;
+        for (int i=0;i<read_len;i++) {
+            char c = buff[i];
+            GSM_LOG_I("Rev: %c", c);
             if (state == 0) {
                 if (c == '\r') {
-                    state = 1;
+                    if (commandRecheckBuff.length() > 0) {
+                        GSM_LOG_I("Rev command recheck: %s", commandRecheckBuff.c_str());
+                        if (commandRecheckBuff == lastCommand) {
+                            xEventGroupSetBits(_urc_flags, URC_COMMAND_RECHECK_FLAG);
+                        }
+                        commandRecheckBuff.clear();
+                        state = 0;
+                    } else {
+                        state = 1;
+                    }
                 } else {
+                    commandRecheckBuff += c;
                     state = 0;
                 }
             } else if (state == 1) {
@@ -346,12 +413,6 @@ void URCServiceTask(void*) {
                     state = 3;
                 }
             } else if (state == 3) {
-                if (c == '\r') {
-                    state = 4;
-                } else {
-                    state = 0;
-                }
-            } else if (state == 4) {
                 if (c == '\n') {
                     URCProcess(responseBuff);
                     responseBuff.clear();
@@ -359,7 +420,7 @@ void URCServiceTask(void*) {
                 state = 0;
             }
         }
-        delay(10);
+        free(buff);
     }
 
     vTaskDelete(NULL);
