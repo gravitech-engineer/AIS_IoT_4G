@@ -6,10 +6,8 @@ struct {
     bool itUsing = false;
 } ClientSocketInfo[10];
 
-GSMClient::GSMClient() { }
-
-GSMClient::~GSMClient() {
-    this->stop();
+GSMClient::GSMClient() {
+    
 }
 
 int GSMClient::connect(IPAddress ip, uint16_t port, int32_t timeout) {
@@ -34,6 +32,18 @@ int GSMClient::connect(const char *host, uint16_t port, int32_t timeout) {
         GSM_LOG_E("Socket not available");
         return -5;
     }
+
+    if (!rxQueue) {
+        rxQueue = xQueueCreate(
+            GSM_TCP_BUFFER, 
+            sizeof(uint8_t)
+        );
+        if (!rxQueue) {
+            GSM_LOG_E("Create RX queue fail, RAM not available");
+            return -5;
+        }
+    }
+    xQueueReset(rxQueue);
 
     if (!_SIM_Base.sendCommandCheckRespond("AT+CIPTIMEOUT=" + String(timeout) + "," + String(timeout) + "," + String(timeout))) {
         GSM_LOG_E("Set timeout error");
@@ -90,7 +100,7 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
         return 0; // Timeout
     }
 
-    if (!_SIM_Base.wait(">")) {
+    if (!_SIM_Base.wait("\r\n>")) {
         GSM_LOG_E("Wait > timeout");
         return 0; // Timeout
     }
@@ -119,11 +129,48 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
         return 0; // Timeout
     }
 
+    if (!_SIM_Base.wait("\r\n")) {
+        GSM_LOG_E("Wait > timeout");
+        return 0; // Timeout
+    }
+
+    String sendStatusBuffer = "";
+    if (!_SIM_Base.readEndsWith(&sendStatusBuffer, 50, "\r\n", 300)) {
+        GSM_LOG_I("Wait data reply timeout (2)");
+        return 0;
+    }
+
+    sendStatusBuffer = sendStatusBuffer.substring(0, sendStatusBuffer.length() - 2);
+    GSM_LOG_I("Send command got : %s", sendStatusBuffer.c_str());
+
+    int res_socket = -1, res_send_length = 0, res_real_send_length = 0;
+    if (sscanf(sendStatusBuffer.c_str(), "+CIPSEND: %d,%d,%d", &res_socket, &res_send_length, &res_real_send_length) != 3) {
+        GSM_LOG_E("Get TCP/IP send data format error");
+        return 0;
+    }
+
+    if (res_real_send_length == -1) {
+        GSM_LOG_E("TCP/IP is disconnect so can't send data");
+        this->_connected = false;
+        return 0;
+    }
+
+    if (res_send_length != size) {
+        GSM_LOG_E("Req send data size back error, needs %d but got %d", size, res_send_length);
+        return 0;
+    }
+
+    if (res_real_send_length != size) {
+        GSM_LOG_E("Real send data size back error, needs %d but got %d (Go disconnect)", size, res_real_send_length);
+        this->stop();
+        return 0;
+    }
+
     return size;
 }
 
 int GSMClient::available() {
-    if (!this->_connected) {
+    if (this->sock_id != -1) {
         return 0;
     }
 
@@ -135,24 +182,32 @@ int GSMClient::available() {
 
     int res_socket_id = -1, res_length = -1;
     if (sscanf(dataAvailableBuffer.c_str(), "+CIPRXGET: 4,%d,%d", &res_socket_id, &res_length) != 2) {
-        GSM_LOG_E("TCP/IP disconnect response format error");
+        GSM_LOG_E("Get Data Available TCP/IP response format error");
         return 0;
     }
 
-    return res_length;
-}
-
-int GSMClient::read() {
-    char c;
-    if (this->read((uint8_t*)&c, 1) >= 0) {
-        return c;
-    } else {
-        return -1;
+    if (res_length > 0) {
+        // Read from SIM7600 to queue
+        size_t dataLenGet = min(res_length, (int)uxQueueSpacesAvailable(rxQueue));
+        uint8_t* buff = (uint8_t*)malloc(dataLenGet);
+        int realReadSize = this->_gsm_read(buff, dataLenGet);
+        if (realReadSize != dataLenGet) {
+            GSM_LOG_E("TCP/IP Read from GSM error size, Read : %d but got %d", dataLenGet, realReadSize);
+        }
+        for (int i=0;i<realReadSize;i++) {
+            if (xQueueSend(rxQueue, &buff[i], 0) != pdTRUE) {
+                GSM_LOG_E("Queue is full ?");
+                break;
+            }
+        }
+        free(buff);
     }
+
+    return uxQueueMessagesWaiting(rxQueue);
 }
 
-int GSMClient::read(uint8_t *buf, size_t size) {
-    if (!this->_connected) {
+int GSMClient::_gsm_read(uint8_t *buf, size_t size) {
+    if (this->sock_id != -1) {
         return -1;
     }
 
@@ -183,8 +238,8 @@ int GSMClient::read(uint8_t *buf, size_t size) {
     }
 
     if (res_length != size) {
-        GSM_LOG_E("Data size back error");
-        return -1;
+        GSM_LOG_E("Data size back error, needs %d but got %d", size, res_length);
+        // return -1;
     }
 
     uint32_t beforeTimeout = this->getTimeout();
@@ -206,8 +261,61 @@ int GSMClient::read(uint8_t *buf, size_t size) {
     return res_length;
 }
 
-int GSMClient::peek() { // Not support
-    return 0;
+int GSMClient::read() {
+    char c;
+    if (this->read((uint8_t*)&c, 1) >= 0) {
+        return c;
+    } else {
+        return -1;
+    }
+}
+
+int GSMClient::read(uint8_t *buf, size_t size) {
+    if (this->sock_id != -1) {
+        return -1;
+    }
+
+    size_t dataWaitRead = uxQueueMessagesWaiting(rxQueue);
+    if (dataWaitRead == 0) {
+        dataWaitRead = this->available();
+    }
+
+    if (dataWaitRead == 0) {
+        return -1;
+    }
+
+    uint8_t realRead = 0;
+	for (int i=0;i<min(dataWaitRead, size);i++) {
+		if (xQueueReceive(rxQueue, &buf[i], 0) == pdTRUE) {
+            realRead++;
+        } else {
+            break;
+        }
+	}
+
+    return realRead;
+}
+
+int GSMClient::peek() {
+    if (this->sock_id != -1) {
+        return -1;
+    }
+
+    size_t dataWaitRead = uxQueueMessagesWaiting(rxQueue);
+    if (dataWaitRead == 0) {
+        dataWaitRead = this->available();
+    }
+
+    if (dataWaitRead == 0) {
+        return -1;
+    }
+
+    uint8_t c;
+    if (xQueuePeek(rxQueue, &c, 0) != pdTRUE) {
+        return -1;
+    }
+
+    return c;
 }
 
 void GSMClient::flush() { // Not support
@@ -226,6 +334,8 @@ void GSMClient::stop() {
     if (this->sock_id == -1) {
         return;
     }
+
+    vQueueDelete(rxQueue);
 
     String disonnectStatusBuffer = "";
     if (!_SIM_Base.sendCommandGetRespondOneLine("AT+CIPCLOSE=" + String(this->sock_id), &disonnectStatusBuffer, 500)) {
@@ -249,3 +359,6 @@ void GSMClient::stop() {
     }
 }
 
+GSMClient::~GSMClient() {
+    this->stop();
+}

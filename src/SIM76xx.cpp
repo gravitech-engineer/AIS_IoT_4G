@@ -87,6 +87,8 @@ bool SIM76XX::begin() {
         return false;
     }
 
+    _SIM_Base.URCServiceStart();
+
     // Configs
     GSM_LOG_I("Network close... ");
     if (!Network.networkClose()) {

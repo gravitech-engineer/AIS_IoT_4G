@@ -2,8 +2,11 @@
 #define __SIM_BASE_H__
 
 #include "Arduino.h"
+#include <functional>
 
 #define COMMAND_TIMEOUT 500
+
+typedef std::function<void(String data)> URCHandlerFunction;
 
 class SIMBase : public HardwareSerial {
     public:
@@ -19,6 +22,13 @@ class SIMBase : public HardwareSerial {
         bool sendCommandFindOK(String cmd, uint32_t timeout = COMMAND_TIMEOUT) ; // Send , wait echo , find OK
         bool sendCommandGetRespondOneLine(String cmd, String* respond, uint32_t timeout = COMMAND_TIMEOUT) ;
         bool sendCommandCheckRespond(String cmd, uint32_t timeout = COMMAND_TIMEOUT) ;
+
+        // Receive manager
+        bool URCServiceStart() ;
+        int8_t waitOKorERROR(uint32_t timeout = COMMAND_TIMEOUT) ;
+        bool URCRegister(String start, URCHandlerFunction callback) ;
+        bool URCDeregister(String start) ;
+        uint16_t getDataAfterIt(uint8_t *buff, uint32_t len, uint32_t timeout = COMMAND_TIMEOUT) ;
 
 };
 
