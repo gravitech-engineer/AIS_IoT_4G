@@ -327,7 +327,7 @@ int GSMClient::available() {
     }
 
     size_t dataWaitRead = uxQueueMessagesWaiting(ClientSocketInfo[this->sock_id].rxQueue);
-    if (dataWaitRead > 0) {
+    if (uxQueueSpacesAvailable(ClientSocketInfo[this->sock_id].rxQueue) <= 0) {
         return dataWaitRead;
     }
 
@@ -408,7 +408,10 @@ int GSMClient::available() {
             xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_RECEIVE_DATA_SUCCESS_FLAG);
         });
 
-        if (!_SIM_Base.sendCommand("AT+CIPRXGET=2," + String(this->sock_id) + "," + String(data_in_buffer_length), 300)) {
+        int bufferFree = uxQueueSpacesAvailable(ClientSocketInfo[this->sock_id].rxQueue);
+        uint16_t read_size = min(data_in_buffer_length, bufferFree);
+        GSM_LOG_I("Data in GSM %d , Buffer free: %d, Read size %d", data_in_buffer_length, bufferFree, read_size);
+        if (!_SIM_Base.sendCommand("AT+CIPRXGET=2," + String(this->sock_id) + "," + String(read_size), 300)) {
             GSM_LOG_E("Send req recv data error");
             return 0; // Timeout
         }
@@ -428,9 +431,15 @@ int GSMClient::available() {
         if (!_SIM_Base.waitOKorERROR(300)) {
             GSM_LOG_E("Socket %d recv data wait OK timeout", this->sock_id);
         }
-    }
 
-    ClientSocketInfo[this->sock_id].read_request_flag = false;
+        if ((data_in_buffer_length - read_size) > 0) {
+            ClientSocketInfo[this->sock_id].read_request_flag = false;
+        } else {
+            ClientSocketInfo[this->sock_id].read_request_flag = true;
+        }
+    } else {
+        ClientSocketInfo[this->sock_id].read_request_flag = false;
+    }
 
     return uxQueueMessagesWaiting(ClientSocketInfo[this->sock_id].rxQueue);
 }
