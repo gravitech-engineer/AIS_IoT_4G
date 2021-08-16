@@ -1,3 +1,6 @@
+#ifndef __GSM_CLIENT_H__
+#define __GSM_CLIENT_H__
+
 #include "Client.h"
 #include "SIMBase.h"
 
@@ -35,3 +38,5 @@ class GSMClient : public Client {
         operator bool() ;
 
 };
+
+#endif
