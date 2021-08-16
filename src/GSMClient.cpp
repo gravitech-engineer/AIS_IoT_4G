@@ -6,6 +6,7 @@ struct {
     bool itUsing = false;
     bool connected = false;
     QueueHandle_t rxQueue = NULL;
+    bool read_request_flag = false;
 } ClientSocketInfo[10];
 
 EventGroupHandle_t _gsm_client_flags = NULL;
@@ -75,6 +76,23 @@ GSMClient::GSMClient() {
             GSM_LOG_I("Socket %d is close bacause %d", socket_id, close_because);
             ClientSocketInfo[socket_id].connected = false;
             xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECTED_FLAG);
+        });
+
+        _SIM_Base.URCRegister("+CIPRXGET: 1", [](String urcText) {
+            int socket_id = -1;
+            if (sscanf(urcText.c_str(), "+CIPRXGET: 1,%d", &socket_id) != 1) {
+                GSM_LOG_E("+CIPRXGET: 1 format fail");
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECT_FAIL_FLAG);
+                return;
+            }
+
+            if ((socket_id < 0) || (socket_id > 9)) {
+                GSM_LOG_E("+CIPRXGET: 1 | Socket %d is out of range", socket_id);
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECT_FAIL_FLAG);
+                return;
+            }
+
+            ClientSocketInfo[socket_id].read_request_flag = true;
         });
 
         setupURC = true;
@@ -313,6 +331,10 @@ int GSMClient::available() {
         return dataWaitRead;
     }
 
+    if (!ClientSocketInfo[this->sock_id].read_request_flag) {
+        return dataWaitRead;
+    }
+
     check_socket_id = this->sock_id;
 
     xEventGroupClearBits(_gsm_client_flags, GSM_CLIENT_RECEIVE_DATA_SIZE_SUCCESS_FLAG | GSM_CLIENT_RECEIVE_DATA_SIZE_FAIL_FLAG);
@@ -407,6 +429,8 @@ int GSMClient::available() {
             GSM_LOG_E("Socket %d recv data wait OK timeout", this->sock_id);
         }
     }
+
+    ClientSocketInfo[this->sock_id].read_request_flag = false;
 
     return uxQueueMessagesWaiting(ClientSocketInfo[this->sock_id].rxQueue);
 }
