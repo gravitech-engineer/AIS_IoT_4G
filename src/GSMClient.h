@@ -7,10 +7,7 @@ class GSMClient : public Client {
     private:
         uint8_t sock_id = -1;
         bool _connected = false;
-
-        QueueHandle_t rxQueue = NULL;
-        int _gsm_read(uint8_t *buf, size_t size) ;
-
+        
     public:
         GSMClient();
         ~GSMClient();

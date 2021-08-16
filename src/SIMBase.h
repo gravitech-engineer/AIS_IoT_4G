@@ -18,6 +18,7 @@ class SIMBase : public HardwareSerial {
         bool wait(String str, uint32_t timeout = COMMAND_TIMEOUT) ;
 
         bool send(String str) ; // Send to Serial
+        bool send(uint8_t* data, uint16_t len) ; // Send to Serial
         bool sendCommand(String cmd, uint32_t timeout = COMMAND_TIMEOUT) ; // Send and wait echo
         bool sendCommandFindOK(String cmd, uint32_t timeout = COMMAND_TIMEOUT) ; // Send , wait echo , find OK
         bool sendCommandGetRespondOneLine(String cmd, String* respond, uint32_t timeout = COMMAND_TIMEOUT) ;
@@ -28,7 +29,9 @@ class SIMBase : public HardwareSerial {
         int8_t waitOKorERROR(uint32_t timeout = COMMAND_TIMEOUT) ;
         bool URCRegister(String start, URCHandlerFunction callback) ;
         bool URCDeregister(String start) ;
-        uint16_t getDataAfterIt(uint8_t *buff, uint32_t len, uint32_t timeout = COMMAND_TIMEOUT) ;
+        void setWaitURC(String start) ;
+        bool waitURC(uint32_t timeout = COMMAND_TIMEOUT) ;
+        uint16_t getDataAfterIt(uint8_t *buff, uint16_t len, uint32_t timeout = COMMAND_TIMEOUT) ;
 
 };
 

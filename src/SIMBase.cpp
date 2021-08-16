@@ -10,6 +10,7 @@ void URCServiceTask(void*) ;
 #define URC_OK_FLAG              (1 << 0)
 #define URC_ERROR_FLAG           (1 << 1)
 #define URC_COMMAND_RECHECK_FLAG (1 << 2)
+#define URC_WAITING_FOUND_FLAG   (1 << 3)
 
 #define TAKE_USE_SERIAL xSemaphoreTake(_serial_mutex, portMAX_DELAY)
 #define GIVE_USE_SERIAL xSemaphoreGive(_serial_mutex)
@@ -59,8 +60,12 @@ bool SIMBase::wait(String str, uint32_t timeout) {
 }
 
 bool SIMBase::send(String str) {
+    return this->send((uint8_t*)str.c_str(), str.length());
+}
+
+bool SIMBase::send(uint8_t* data, uint16_t len) {
     TAKE_USE_SERIAL;
-    this->print(str);
+    this->write(data, len);
     GIVE_USE_SERIAL;
 
     return true;
@@ -315,15 +320,55 @@ bool SIMBase::URCDeregister(String start) {
     return true;
 }
 
-uint16_t SIMBase::getDataAfterIt(uint8_t *buff, uint32_t len, uint32_t timeout) {
-    uint32_t beforeTimeout = this->getTimeout();
-    this->setTimeout(timeout);
+String _urc_waiting;
+void SIMBase::setWaitURC(String start) {
+    xEventGroupClearBits(_urc_flags, URC_WAITING_FOUND_FLAG);
 
-    uint16_t real_read_len = this->readBytes(buff, len);
+    _urc_waiting = start;
+}
 
-    this->setTimeout(beforeTimeout);
+bool SIMBase::waitURC(uint32_t timeout) {
+    EventBits_t flags = xEventGroupWaitBits(_urc_flags, URC_WAITING_FOUND_FLAG, pdTRUE, pdFALSE, timeout / portTICK_PERIOD_MS);
 
-    return real_read_len;
+    if (flags & URC_WAITING_FOUND_FLAG) {
+        return true;
+    }
+
+    return false; // Timeout
+}
+
+char *_urc_service_data_buffer = NULL;
+uint16_t _urc_service_data_buffer_index = 0;
+uint16_t _urc_service_data_buffer_size = 0;
+
+uint16_t SIMBase::getDataAfterIt(uint8_t *buff, uint16_t len, uint32_t timeout) {
+    uint16_t buff_index = 0;
+
+    if (_urc_service_data_buffer) {
+        while(1) {
+            if (buff_index == len) {
+                break;
+            }
+            if (_urc_service_data_buffer_index < _urc_service_data_buffer_size) {
+                buff[buff_index++] = _urc_service_data_buffer[_urc_service_data_buffer_index++];
+            } else {
+                break;
+            }
+        }
+    }
+
+    if (buff_index < len) {
+        uint16_t wait_read = len - buff_index;
+
+        uint32_t beforeTimeout = _SIM_Base.getTimeout();
+        _SIM_Base.setTimeout(timeout);
+
+        buff_index += _SIM_Base.readBytes(&buff[buff_index], wait_read);
+
+        _SIM_Base.setTimeout(beforeTimeout);
+    }
+
+    return buff_index;
 }
 
 int8_t SIMBase::waitOKorERROR(uint32_t timeout) {
@@ -343,14 +388,17 @@ int8_t SIMBase::waitOKorERROR(uint32_t timeout) {
 }
 
 void URCProcess(String data) {
-    GSM_LOG_I("URC Process data: %s", data.c_str());
+    GSM_LOG_I("URC Process data: %s , Wait: %s", data.c_str(), _urc_waiting.c_str());
     // return;
 
     if (data == "OK") {
         xEventGroupSetBits(_urc_flags, URC_OK_FLAG);
     } else if (data == "ERROR") {
         xEventGroupSetBits(_urc_flags, URC_ERROR_FLAG);
-    } else { // Find URC
+    } else if (data == _urc_waiting) {
+        xEventGroupSetBits(_urc_flags, URC_WAITING_FOUND_FLAG);
+        _urc_waiting = "";
+    } else { // Find URC Register
         URCRegister_node *node = getURCRegisterNodeByStart(data);
         if (node) {
             if (node->callback) {
@@ -366,21 +414,23 @@ void URCServiceTask(void*) {
     uint8_t state = 0;
     String commandRecheckBuff = "";
     String responseBuff = "";
-    int read_len;
     while(1) {
         TAKE_USE_SERIAL;
-        read_len = _SIM_Base.available();
+        _urc_service_data_buffer_size = _SIM_Base.available();
         GIVE_USE_SERIAL;
-        if (read_len == 0) {
+        if (_urc_service_data_buffer_size == 0) {
             delay(10);
             continue;
         }
-        char *buff = (char*)malloc(read_len);
+        _urc_service_data_buffer = (char*)malloc(_urc_service_data_buffer_size);
         TAKE_USE_SERIAL;
-        read_len = _SIM_Base.readBytes(buff, read_len);
+        _urc_service_data_buffer_size = _SIM_Base.readBytes(_urc_service_data_buffer, _urc_service_data_buffer_size);
         GIVE_USE_SERIAL;
-        for (int i=0;i<read_len;i++) {
-            char c = buff[i];
+        _urc_service_data_buffer_index = 0;
+
+        while (_urc_service_data_buffer_index < _urc_service_data_buffer_size) {
+            char c = _urc_service_data_buffer[_urc_service_data_buffer_index++];
+
             // GSM_LOG_I("Rev: %c", c);
             if (state == 0) {
                 if (c == '\r') {
@@ -403,12 +453,19 @@ void URCServiceTask(void*) {
                     responseBuff.clear();
 
                     state = 2;
+                } else if (c == '\r') { // Found \r\r
+                    state = 1;
                 } else {
                     state = 0;
                 }
             } else if (state == 2) {
                 if (c != '\r') {
-                    responseBuff += (char)c;
+                    if (responseBuff.length() == 0 && c == '>') {
+                        URCProcess(">");
+                        state = 0;
+                    } else {
+                        responseBuff += (char)c;
+                    }
                 } else {
                     state = 3;
                 }
@@ -420,7 +477,7 @@ void URCServiceTask(void*) {
                 state = 0;
             }
         }
-        free(buff);
+        free(_urc_service_data_buffer);
     }
 
     vTaskDelete(NULL);
