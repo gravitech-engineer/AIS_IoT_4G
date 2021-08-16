@@ -35,29 +35,6 @@ GSMClient::GSMClient() {
     }
 
     if (!setupURC) {
-        _SIM_Base.URCRegister("+CIPOPEN", [](String urcText) {
-            int res_socket_id = -1, res_status = -1;
-            if (sscanf(urcText.c_str(), "+CIPOPEN: %d,%d", &res_socket_id, &res_status) != 2) {
-                GSM_LOG_E("Respont format error");
-                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG);
-                return;
-            }
-            
-            if (res_socket_id != check_socket_id) {
-                GSM_LOG_E("Respont socket id wrong");
-                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG);
-                return;
-            }
-
-            if (res_status != 0) {
-                GSM_LOG_E("Connect fail, error code: %d", res_status);
-                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG);
-                return;
-            }
-            
-            xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECTED_FLAG);
-        });
-
         _SIM_Base.URCRegister("+CIPCLOSE", [](String urcText) {
             int socket_id = -1, error = -1;
             if (sscanf(urcText.c_str(), "+CIPCLOSE: %d,%d", &socket_id, &error) != 2) {
@@ -145,6 +122,32 @@ int GSMClient::connect(const char *host, uint16_t port, int32_t timeout) {
         return -2;
     }
 
+    xEventGroupClearBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG | GSM_CLIENT_CONNECT_FAIL_FLAG);
+    _SIM_Base.URCRegister("+CIPOPEN", [](String urcText) {
+        _SIM_Base.URCDeregister("+CIPOPEN");
+
+        int res_socket_id = -1, res_status = -1;
+        if (sscanf(urcText.c_str(), "+CIPOPEN: %d,%d", &res_socket_id, &res_status) != 2) {
+            GSM_LOG_E("Respont format error");
+            xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG);
+            return;
+        }
+            
+        if (res_socket_id != check_socket_id) {
+            GSM_LOG_E("Respont socket id wrong");
+            xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG);
+            return;
+        }
+
+        if (res_status != 0) {
+            GSM_LOG_E("Connect fail, error code: %d", res_status);
+            xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECT_FAIL_FLAG);
+            return;
+        }
+            
+        xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_CONNECTED_FLAG);
+    });
+
     check_socket_id = this->sock_id;
     if (!_SIM_Base.sendCommandFindOK("AT+CIPOPEN=" + String(this->sock_id) + ",\"TCP\",\"" + String(host) + "\"," + String(port), timeout)) {
         GSM_LOG_E("Send connect TCP/IP error");
@@ -188,6 +191,7 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
     check_socket_id = this->sock_id;
     check_send_length = size;
 
+    xEventGroupClearBits(_gsm_client_flags, GSM_CLIENT_SEND_SUCCESS_FLAG | GSM_CLIENT_SEND_FAIL_FLAG);
     _SIM_Base.URCRegister("+CIPSEND", [](String urcText) {
         _SIM_Base.URCDeregister("+CIPSEND");
         
@@ -220,6 +224,7 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
         xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_SEND_SUCCESS_FLAG);
     });
 
+    xEventGroupClearBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_SUCCESS_FLAG | GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG);
     _SIM_Base.URCRegister(">", [](String urcText) {
         _SIM_Base.URCDeregister(">");
         
@@ -299,6 +304,10 @@ int GSMClient::available() {
         return 0;
     }
 
+    if (!ClientSocketInfo[this->sock_id].rxQueue) {
+        return 0;
+    }
+
     size_t dataWaitRead = uxQueueMessagesWaiting(ClientSocketInfo[this->sock_id].rxQueue);
     if (dataWaitRead > 0) {
         return dataWaitRead;
@@ -306,6 +315,7 @@ int GSMClient::available() {
 
     check_socket_id = this->sock_id;
 
+    xEventGroupClearBits(_gsm_client_flags, GSM_CLIENT_RECEIVE_DATA_SIZE_SUCCESS_FLAG | GSM_CLIENT_RECEIVE_DATA_SIZE_FAIL_FLAG);
     _SIM_Base.URCRegister("+CIPRXGET: 4", [](String urcText) {
         _SIM_Base.URCDeregister("+CIPRXGET: 4");
         
@@ -412,6 +422,10 @@ int GSMClient::read() {
 
 int GSMClient::read(uint8_t *buf, size_t size) {
     if (this->sock_id == -1) {
+        return -1;
+    }
+
+    if (!ClientSocketInfo[this->sock_id].rxQueue) {
         return -1;
     }
 
