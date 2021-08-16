@@ -299,6 +299,11 @@ int GSMClient::available() {
         return 0;
     }
 
+    size_t dataWaitRead = uxQueueMessagesWaiting(ClientSocketInfo[this->sock_id].rxQueue);
+    if (dataWaitRead > 0) {
+        return dataWaitRead;
+    }
+
     check_socket_id = this->sock_id;
 
     _SIM_Base.URCRegister("+CIPRXGET: 4", [](String urcText) {
@@ -432,7 +437,7 @@ int GSMClient::read(uint8_t *buf, size_t size) {
 }
 
 int GSMClient::peek() {
-    if (this->sock_id != -1) {
+    if (this->sock_id == -1) {
         return -1;
     }
 
