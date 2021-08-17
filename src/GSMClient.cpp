@@ -319,19 +319,23 @@ int data_in_buffer_length = 0;
 
 int GSMClient::available() {
     if (this->sock_id == -1) {
+        // GSM_LOG_I("No socket !");
         return 0;
     }
 
     if (!ClientSocketInfo[this->sock_id].rxQueue) {
+        // GSM_LOG_I("No queue !");
         return 0;
     }
 
     size_t dataWaitRead = uxQueueMessagesWaiting(ClientSocketInfo[this->sock_id].rxQueue);
     if (uxQueueSpacesAvailable(ClientSocketInfo[this->sock_id].rxQueue) <= 0) {
+        GSM_LOG_I("No spaces !");
         return dataWaitRead;
     }
 
     if (!ClientSocketInfo[this->sock_id].read_request_flag) {
+        // GSM_LOG_I("No flage set !");
         return dataWaitRead;
     }
 
@@ -409,7 +413,7 @@ int GSMClient::available() {
         });
 
         int bufferFree = uxQueueSpacesAvailable(ClientSocketInfo[this->sock_id].rxQueue);
-        uint16_t read_size = min(data_in_buffer_length, bufferFree);
+        uint16_t read_size = min(min(data_in_buffer_length, bufferFree), 1500);
         GSM_LOG_I("Data in GSM %d , Buffer free: %d, Read size %d", data_in_buffer_length, bufferFree, read_size);
         if (!_SIM_Base.sendCommand("AT+CIPRXGET=2," + String(this->sock_id) + "," + String(read_size), 300)) {
             GSM_LOG_E("Send req recv data error");
@@ -433,9 +437,9 @@ int GSMClient::available() {
         }
 
         if ((data_in_buffer_length - read_size) > 0) {
-            ClientSocketInfo[this->sock_id].read_request_flag = false;
-        } else {
             ClientSocketInfo[this->sock_id].read_request_flag = true;
+        } else {
+            ClientSocketInfo[this->sock_id].read_request_flag = false;
         }
     } else {
         ClientSocketInfo[this->sock_id].read_request_flag = false;
@@ -463,7 +467,7 @@ int GSMClient::read(uint8_t *buf, size_t size) {
     }
 
     size_t dataWaitRead = uxQueueMessagesWaiting(ClientSocketInfo[this->sock_id].rxQueue);
-    if (dataWaitRead == 0) {
+    if ((dataWaitRead == 0) || ClientSocketInfo[this->sock_id].read_request_flag) {
         dataWaitRead = this->available();
     }
 

@@ -1,19 +1,17 @@
-#ifndef __GSM_CLIENT_H__
-#define __GSM_CLIENT_H__
+#ifndef __GSM_CLIENT_SECURE_H__
+#define __GSM_CLIENT_SECURE_H__
 
 #include "Client.h"
-#include "SIMBase.h"
+#include "GSMClient.h"
+#include "gsm_ssl_client.h"
 
-#define GSM_TCP_BUFFER (16 * 1024)
-
-class GSMClient : public Client {   
+class GSMClientSecure : public Client {   
     private:
-        uint8_t sock_id = -1;
-        bool _connected = false;
+        gsm_sslclient_context *sslclient = NULL;
         
     public:
-        GSMClient();
-        ~GSMClient();
+        GSMClientSecure();
+        ~GSMClientSecure();
 
         int connect(IPAddress ip, uint16_t port, int32_t timeout) ;
         int connect(const char *host, uint16_t port, int32_t timeout) ;
