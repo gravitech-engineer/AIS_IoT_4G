@@ -8,10 +8,25 @@
 class GSMClientSecure : public Client {   
     private:
         gsm_sslclient_context *sslclient = NULL;
+
+        const char *CA_cert = NULL;
+        const char *cert = NULL;
+        const char *private_key = NULL;
+        const char *pskIdent = NULL;
+        const char *psKey = NULL;
+        bool insecure = false;
         
     public:
-        GSMClientSecure();
-        ~GSMClientSecure();
+        GSMClientSecure() ;
+        ~GSMClientSecure() ;
+
+        void setInsecure() ;
+        void setPreSharedKey(const char *pskIdent, const char *psKey) ; // psKey in Hex
+        void setCACert(const char *rootCA) ;
+        void setCertificate(const char *client_ca) ;
+        void setPrivateKey (const char *private_key) ;
+        bool verify(const char* fingerprint, const char* domain_name) ;
+        void setHandshakeTimeout(unsigned long handshake_timeout);
 
         int connect(IPAddress ip, uint16_t port, int32_t timeout) ;
         int connect(const char *host, uint16_t port, int32_t timeout) ;
@@ -23,6 +38,11 @@ class GSMClientSecure : public Client {
         inline int connect(const char *host, uint16_t port) {
             return connect(host, port, 30 * 1000); // 30 sec
         }
+
+        int connect(IPAddress ip, uint16_t port, const char *rootCABuff, const char *cli_cert, const char *cli_key) ;
+        int connect(const char *host, uint16_t port, const char *rootCABuff, const char *cli_cert, const char *cli_key) ;
+        int connect(IPAddress ip, uint16_t port, const char *pskIdent, const char *psKey) ;
+        int connect(const char *host, uint16_t port, const char *pskIdent, const char *psKey) ;
 
         size_t write(uint8_t) ;
         size_t write(const uint8_t *buf, size_t size) ;
