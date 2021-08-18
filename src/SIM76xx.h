@@ -9,6 +9,8 @@ class SIM76XX {
     private:
         int rx_pin, tx_pin, pwr_pin;
 
+        unsigned long _getTimeFromSIM(String ntp_server);
+
     public:
         SIM76XX(int rx_pin, int tx_pin, int power_pin) ;
 

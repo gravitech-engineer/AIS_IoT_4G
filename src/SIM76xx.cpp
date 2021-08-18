@@ -134,15 +134,7 @@ bool SIM76XX::shutdown() {
 struct tm _sim_rtc;
 int _sim_rtc_timezone = 7;
 
-unsigned long SIM76XX::getTime(String ntp_server) {
-    unsigned long t = getLocalTime(ntp_server);
-    if (t > 0) {
-        t -= _sim_rtc_timezone * 60 * 60; // +7 hour to 0 (GMT)
-    }
-    return t;
-}
-
-unsigned long SIM76XX::getLocalTime(String ntp_server) {
+unsigned long SIM76XX::_getTimeFromSIM(String ntp_server) {
     GSM_LOG_I("Config NTP server...");
     if (!_SIM_Base.sendCommandFindOK("AT+CNTP=\"" + ntp_server + "\",28", 300)) {
       GSM_LOG_E("FAIL, wait try...");
@@ -224,6 +216,26 @@ unsigned long SIM76XX::getLocalTime(String ntp_server) {
     }
 
     return mktime(&_sim_rtc);
+}
+
+unsigned long SIM76XX::getTime(String ntp_server) {
+    unsigned long t = getLocalTime(ntp_server);
+    if (t > 0) {
+        t -= _sim_rtc_timezone * 60 * 60; // +7 hour to 0 (GMT)
+    }
+    return t;
+}
+
+unsigned long SIM76XX::getLocalTime(String ntp_server) {
+    unsigned long t = 0;
+    for (int i=0;i<5;i++) {
+        t = _getTimeFromSIM(ntp_server);
+        if (t > 0) {
+            break;
+        }
+    }
+
+    return t;
 }
 
 int SIM76XX::lowPowerMode() { // Not support
