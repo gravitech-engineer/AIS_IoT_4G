@@ -7,13 +7,16 @@ SemaphoreHandle_t _serial_mutex = NULL;
 
 void URCServiceTask(void*) ;
 
-#define URC_OK_FLAG              (1 << 0)
-#define URC_ERROR_FLAG           (1 << 1)
-#define URC_COMMAND_RECHECK_FLAG (1 << 2)
-#define URC_WAITING_FOUND_FLAG   (1 << 3)
+#define URC_OK_FLAG                     (1 << 0)
+#define URC_ERROR_FLAG                  (1 << 1)
+#define URC_COMMAND_RECHECK_FLAG        (1 << 2)
+#define URC_WAITING_FOUND_FLAG          (1 << 3)
+#define URC_COMMAND_READ_ONE_LINE_FLAG  (1 << 4)
 
 #define TAKE_USE_SERIAL xSemaphoreTake(_serial_mutex, portMAX_DELAY)
 #define GIVE_USE_SERIAL xSemaphoreGive(_serial_mutex)
+
+String line_after_recheck = "";
 
 bool SIMBase::readStringWithTimeout(String *out, uint32_t size, uint32_t timeout) {
     uint32_t beforeTimeout = this->getTimeout();
@@ -102,64 +105,22 @@ bool SIMBase::sendCommandFindOK(String cmd, uint32_t timeout) {
 }
 
 bool SIMBase::sendCommandGetRespondOneLine(String cmd, String* respond, uint32_t timeout) {
-    String status = "";
     respond->clear();
 
     if (!this->sendCommand(cmd)) {
-        GSM_LOG_I("Send command \"%s\" error timeout (1)", cmd.c_str());
+        GSM_LOG_E("Send command \"%s\" error timeout (1)", cmd.c_str());
         return false;
     }
 
-    if (!this->wait("\r\n", timeout)) {
-        GSM_LOG_I("Send command \"%s\" error timeout (2) [%d]", cmd.c_str(), timeout);
+    EventBits_t flags = xEventGroupWaitBits(_urc_flags, URC_COMMAND_READ_ONE_LINE_FLAG, pdTRUE, pdFALSE, timeout);
+    if ((flags & URC_COMMAND_READ_ONE_LINE_FLAG) == 0) {
+        GSM_LOG_E("Send command \"%s\" read one line timeout (1)", cmd.c_str());
         return false;
     }
 
-    if (!this->readEndsWith(&status, 255, "\r\n", 300)) {
-        GSM_LOG_I("Send command \"%s\" error timeout (3)", cmd.c_str());
-        return false;
-    }
+    respond->concat(line_after_recheck);
 
-    status = status.substring(0, status.length() - 2);
-    if (status != "OK") {
-        respond->concat(status);
-        status.clear();
-
-        if (!this->wait("\r\n", 300)) {
-            GSM_LOG_I("Send command \"%s\" error timeout (4) [%d]", cmd.c_str(), timeout);
-            return false;
-        }
-
-        if (!this->readEndsWith(&status, 20, "\r\n", 300)) {
-            GSM_LOG_I("Send command \"%s\" error timeout (5)", cmd.c_str());
-            return false;
-        }
-
-        status = status.substring(0, status.length() - 2);
-    } else {
-        respond->clear();
-
-        if (!this->wait("\r\n", 300)) {
-            GSM_LOG_I("Send command \"%s\" error timeout (4) [%d]", cmd.c_str(), timeout);
-            return false;
-        }
-
-        if (!this->readEndsWith(respond, 255, "\r\n", 300)) {
-            GSM_LOG_I("Send command \"%s\" error timeout (5)", cmd.c_str());
-            return false;
-        }
-
-        *respond = respond->substring(0, respond->length() - 2);
-    }
-
-    GSM_LOG_I("Send command \"%s\" got : %s || %s", cmd.c_str(), respond->c_str(), status.c_str());
-    if (status == "OK") {
-        return true;
-    } else if (status == "ERROR") {
-        return false;
-    }
-
-    return false;
+    return this->waitOKorERROR();
 }
 
 bool SIMBase::sendCommandCheckRespond(String cmd, uint32_t timeout) {
@@ -405,6 +366,9 @@ void URCProcess(String data) {
                 node->callback(data);
             }
         } else {
+            line_after_recheck = data;
+            xEventGroupSetBits(_urc_flags, URC_COMMAND_READ_ONE_LINE_FLAG);
+
             GSM_LOG_E("Not found URC %s register", data.c_str());
         }
     }
@@ -438,6 +402,9 @@ void URCServiceTask(void*) {
                         GSM_LOG_I("Rev command recheck: %s", commandRecheckBuff.c_str());
                         if (commandRecheckBuff == lastCommand) {
                             xEventGroupSetBits(_urc_flags, URC_COMMAND_RECHECK_FLAG);
+                        } else {
+                            line_after_recheck = commandRecheckBuff;
+                            xEventGroupSetBits(_urc_flags, URC_COMMAND_READ_ONE_LINE_FLAG);
                         }
                         commandRecheckBuff.clear();
                         state = 0;
