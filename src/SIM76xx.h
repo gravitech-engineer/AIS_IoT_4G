@@ -15,6 +15,12 @@ class SIM76XX {
         bool begin() ;
         bool shutdown() ;
 
+        unsigned long getTime(String ntp_server = "th.pool.ntp.org") ;
+        unsigned long getLocalTime(String ntp_server = "th.pool.ntp.org") ;
+
+        int lowPowerMode() ;
+        int noLowPowerMode() ;
+
         bool AT() ;
 
         // Modem
