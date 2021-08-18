@@ -280,7 +280,7 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
     _data_send_size = size;
 
     if (!_SIM_Base.sendCommand("AT+CIPSEND=" + String(this->sock_id) + "," + String(size))) {
-        GSM_LOG_E("Send req send data TCP/IP error (1)");
+        GSM_LOG_E("Send req send data TCP/IP error timeout");
         return 0; // Timeout
     }
 
