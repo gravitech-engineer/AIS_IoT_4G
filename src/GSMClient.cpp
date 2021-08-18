@@ -132,7 +132,7 @@ int GSMClient::connect(const char *host, uint16_t port, int32_t timeout) {
     }
 
     if (!_SIM_Base.sendCommandFindOK("AT+CIPTIMEOUT=" + String(timeout) + "," + String(timeout) + "," + String(timeout))) {
-        GSM_LOG_E("Set timeout error");
+        GSM_LOG_I("Set timeout error");
     }
 
     if (!Network.networkOpen(timeout)) {
