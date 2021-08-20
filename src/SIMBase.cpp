@@ -172,7 +172,7 @@ bool SIMBase::URCServiceStart() {
         BaseType_t xReturned = xTaskCreatePinnedToCore(
             URCServiceTask,       /* Function that implements the task. */
             "URCService",         /* Text name for the task. */
-            (8 * 1024) / 4,       /* Stack size in words, not bytes. */
+            (16 * 1024) / 4,      /* Stack size in words, not bytes. */
             NULL,                 /* Parameter passed into the task. */
             10,                   /* Priority at which the task is created. */
             &URCServiceTaskHandle,/* Used to pass out the created task's handle. */
