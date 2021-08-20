@@ -7,6 +7,8 @@ EventGroupHandle_t _sim_general_flags = NULL;
 #define SIM_UPDATE_TIME_FROM_NTP_SUCCESS_FLAG    (1 << 1)
 #define SIM_GET_TIME_FROM_RTC_FAIL_FLAG          (1 << 2)
 #define SIM_GET_TIME_FROM_RTC_SUCCESS_FLAG       (1 << 3)
+#define SIM_GET_POWER_MODE_FAIL_FLAG             (1 << 4)
+#define SIM_GET_POWER_MODE_SUCCESS_FLAG          (1 << 5)
 
 SIM76XX::SIM76XX(int rx_pin, int tx_pin, int pwr_pin) {
     this->rx_pin = rx_pin;
@@ -238,12 +240,63 @@ unsigned long SIM76XX::getLocalTime(String ntp_server) {
     return t;
 }
 
-int SIM76XX::lowPowerMode() { // Not support
-    return 0;
+int _sim_power_mode = 1;
+int SIM76XX::_getPowerMode() {
+    xEventGroupClearBits(_sim_general_flags, SIM_GET_POWER_MODE_SUCCESS_FLAG | SIM_GET_POWER_MODE_FAIL_FLAG);
+    
+    _SIM_Base.URCRegister("+CFUN:", [](String urcText) {
+        _SIM_Base.URCDeregister("+CFUN:");
+
+        if (sscanf(urcText.c_str(), "+CFUN: %d", &_sim_power_mode) != 1) {
+            GSM_LOG_E("+CFUN: Respont format error");
+            xEventGroupSetBits(_sim_general_flags, SIM_GET_POWER_MODE_FAIL_FLAG);
+            return;
+        }
+
+        xEventGroupSetBits(_sim_general_flags, SIM_GET_POWER_MODE_SUCCESS_FLAG);
+    });
+
+    if (!_SIM_Base.sendCommandFindOK("AT+CFUN?", 300)) {
+      GSM_LOG_I("Get power mode error");
+      return -1;
+    }
+
+    EventBits_t flags;
+    flags = xEventGroupWaitBits(_sim_general_flags, SIM_GET_POWER_MODE_SUCCESS_FLAG | SIM_GET_POWER_MODE_FAIL_FLAG, pdTRUE, pdFALSE, 300 / portTICK_PERIOD_MS);
+    if (flags & SIM_GET_POWER_MODE_SUCCESS_FLAG) {
+        GSM_LOG_I("Power mode is %d", _sim_power_mode);
+        return _sim_power_mode;
+        return true;
+    } else if (flags & SIM_GET_POWER_MODE_FAIL_FLAG) {
+        GSM_LOG_E("Get power mode error");
+        return -1;
+    } else {
+        GSM_LOG_E("Send get power mode timeout");
+        return -1;
+    }
+
+    return -1;
 }
 
-int SIM76XX::noLowPowerMode() { // Not support
-    return 0;
+int SIM76XX::_setPowerMode(int mode) {
+    if (this->_getPowerMode() == mode) {
+        return 1;
+    }
+
+    if (!_SIM_Base.sendCommandFindOK("AT+CFUN=" + String(mode))) {
+        GSM_LOG_E("Send power mode error");
+        return 0;
+    }
+
+    return 1;
+}
+
+int SIM76XX::lowPowerMode() {
+    return this->_setPowerMode(0);
+}
+
+int SIM76XX::noLowPowerMode() {
+    return this->_setPowerMode(1);
 }
 
 bool SIM76XX::AT() {

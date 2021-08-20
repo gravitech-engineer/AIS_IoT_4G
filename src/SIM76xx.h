@@ -10,6 +10,8 @@ class SIM76XX {
         int rx_pin, tx_pin, pwr_pin;
 
         unsigned long _getTimeFromSIM(String ntp_server);
+        int _getPowerMode();
+        int _setPowerMode(int mode);
 
     public:
         SIM76XX(int rx_pin, int tx_pin, int power_pin) ;
