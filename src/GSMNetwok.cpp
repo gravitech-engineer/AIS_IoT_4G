@@ -21,6 +21,8 @@ GSMNetwork::GSMNetwork() {
 #define GSM_NETWORK_GET_CURRENT_CARRIER_FAIL_FLAG    (1 << 6)
 #define GSM_NETWORK_GET_DEVICE_IP_SUCCESS_FLAG       (1 << 7)
 #define GSM_NETWORK_GET_DEVICE_IP_FAIL_FLAG          (1 << 8)
+#define GSM_NETWORK_PING_IP_SUCCESS_FLAG             (1 << 9)
+#define GSM_NETWORK_PING_IP_FAIL_FLAG                (1 << 10)
 
 int _net_status = 0;
 
@@ -229,6 +231,57 @@ IPAddress GSMNetwork::getDeviceIP() {
     }
 
     return IPAddress((uint32_t)0x00000000);
+}
+
+bool GSMNetwork::pingIP(String host, int timeout) {
+    timeout = max(timeout, 10000); // Min 10000 ms
+
+    xEventGroupClearBits(_gsm_network_flags, GSM_NETWORK_PING_IP_SUCCESS_FLAG | GSM_NETWORK_PING_IP_FAIL_FLAG);
+    _SIM_Base.URCRegister("+CPING:", [](String urcText) {
+        int type = -1;
+        if (sscanf(urcText.c_str(), "+CPING: %d", &type) != 1) {
+            GSM_LOG_E("Ping format fail (1)");
+            xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_PING_IP_FAIL_FLAG);
+        }
+
+        if (type != 3) {
+            return;
+        }
+
+        _SIM_Base.URCDeregister("+CPING:");
+
+        int recvd, lost;
+        if (sscanf(urcText.c_str(), "+CPING: 3,%*d,%d,%d", &recvd, &lost) <= 0) {
+            GSM_LOG_E("Ping format fail (2)");
+            xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_PING_IP_FAIL_FLAG);
+        }
+
+        if ((recvd == 0) && (lost == 1)) {
+            GSM_LOG_E("Ping fail");
+            xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_PING_IP_FAIL_FLAG);
+        }
+
+        xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_PING_IP_SUCCESS_FLAG);
+    });
+
+    if (!_SIM_Base.sendCommandFindOK("AT+CPING=\"" + host + "\",1,1,64,1000," + String(timeout), 500)) {
+        GSM_LOG_E("Send ping command error");
+        return false;
+    }
+
+    EventBits_t flags = xEventGroupWaitBits(_gsm_network_flags, GSM_NETWORK_PING_IP_SUCCESS_FLAG | GSM_NETWORK_PING_IP_FAIL_FLAG, pdTRUE, pdFALSE, (timeout + 3000) / portTICK_PERIOD_MS);
+    if (flags & GSM_NETWORK_PING_IP_SUCCESS_FLAG) {
+        GSM_LOG_I("Ping OK");
+        return true;
+    } else if (flags & GSM_NETWORK_PING_IP_FAIL_FLAG) {
+        GSM_LOG_E("Ping error");
+        return false;
+    } else {
+        GSM_LOG_E("Ping timeout");
+        return false;
+    }
+
+    return false;
 }
 
 GSMNetwork Network;

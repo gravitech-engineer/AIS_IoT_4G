@@ -18,7 +18,7 @@ class GSMNetwork {
         int getSignalStrength() ;
         IPAddress getDeviceIP() ;
 
-        bool pingIP(String host) ;
+        bool pingIP(String host, int timeout = 10000) ;
 
 };
 
