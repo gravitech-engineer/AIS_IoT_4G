@@ -8,10 +8,14 @@ class GSMNetwork {
     public:
         GSMNetwork() ;
         
-        // PDP
+        // TCP
         bool isNetworkOpen() ;
         bool networkOpen(uint32_t timeout = 30000) ;
         bool networkClose() ;
+
+        // Real Network
+        String getCurrentCarrier() ;
+        int getSignalStrength() ;
 
 };
 

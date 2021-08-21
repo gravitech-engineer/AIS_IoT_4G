@@ -12,9 +12,13 @@ GSMNetwork::GSMNetwork() {
     }
 }
 
-#define GSM_NETWORK_STATUS_UPDATE_FLAG  (1 << 0)
-#define GSM_NETWORK_OPEN_UPDATE_FLAG    (1 << 1)
-#define GSM_NETWORK_CLOSE_UPDATE_FLAG   (1 << 2)
+#define GSM_NETWORK_STATUS_UPDATE_FLAG      (1 << 0)
+#define GSM_NETWORK_OPEN_UPDATE_FLAG        (1 << 1)
+#define GSM_NETWORK_CLOSE_UPDATE_FLAG       (1 << 2)
+#define GSM_NETWORK_GET_SIGNAL_SUCCESS_FLAG (1 << 3)
+#define GSM_NETWORK_GET_SIGNAL_FAIL_FLAG    (1 << 4)
+#define GSM_NETWORK_GET_CURRENT_CARRIER_SUCCESS_FLAG    (1 << 4)
+#define GSM_NETWORK_GET_CURRENT_CARRIER_FAIL_FLAG    (1 << 4)
 
 int _net_status = 0;
 
@@ -117,6 +121,75 @@ bool GSMNetwork::networkClose() {
 
     GSM_LOG_E("Get status of NET Close timeout (2)");
     return false;
+}
+
+char _network_current_carrier[40];
+
+String GSMNetwork::getCurrentCarrier() {
+    xEventGroupClearBits(_gsm_network_flags, GSM_NETWORK_GET_CURRENT_CARRIER_SUCCESS_FLAG | GSM_NETWORK_GET_CURRENT_CARRIER_FAIL_FLAG);
+    _SIM_Base.URCRegister("+COPS:", [](String urcText) {
+        _SIM_Base.URCDeregister("+COPS:");
+
+        if (sscanf(urcText.c_str(), "+COPS: %*d,%*d,\"%39[^\"]\"", _network_current_carrier) <= 0) {
+            GSM_LOG_E("Get current carrier format fail");
+            xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_GET_CURRENT_CARRIER_FAIL_FLAG);
+        }
+
+        xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_GET_CURRENT_CARRIER_SUCCESS_FLAG);
+    });
+
+    if (!_SIM_Base.sendCommandFindOK("AT+COPS?")) {
+        GSM_LOG_E("Send get current carrier command error");
+        return String();
+    }
+
+    EventBits_t flags = xEventGroupWaitBits(_gsm_network_flags, GSM_NETWORK_GET_CURRENT_CARRIER_SUCCESS_FLAG | GSM_NETWORK_GET_CURRENT_CARRIER_FAIL_FLAG, pdTRUE, pdFALSE, 300 / portTICK_PERIOD_MS);
+    if (flags & GSM_NETWORK_GET_CURRENT_CARRIER_SUCCESS_FLAG) {
+        GSM_LOG_I("Connected to %s", _network_current_carrier);
+        return String(_network_current_carrier);
+    } else if (flags & GSM_NETWORK_GET_CURRENT_CARRIER_FAIL_FLAG) {
+        GSM_LOG_E("Get current carrier error");
+        return String();
+    } else {
+        GSM_LOG_E("Get current carrier timeout");
+        return String();
+    }
+
+    return String();
+}
+
+int _network_signal = -1;
+int GSMNetwork::getSignalStrength() {
+    xEventGroupClearBits(_gsm_network_flags, GSM_NETWORK_GET_SIGNAL_SUCCESS_FLAG | GSM_NETWORK_GET_SIGNAL_FAIL_FLAG);
+    _SIM_Base.URCRegister("+CSQ:", [](String urcText) {
+        _SIM_Base.URCDeregister("+CSQ:");
+
+        if (sscanf(urcText.c_str(), "+CSQ: %d", &_network_signal) != 1) {
+            GSM_LOG_E("Get network signal format fail");
+            xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_GET_SIGNAL_FAIL_FLAG);
+        }
+
+        xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_GET_SIGNAL_SUCCESS_FLAG);
+    });
+
+    if (!_SIM_Base.sendCommandFindOK("AT+CSQ")) {
+        GSM_LOG_E("Send get signal command error");
+        return false;
+    }
+
+    EventBits_t flags = xEventGroupWaitBits(_gsm_network_flags, GSM_NETWORK_GET_SIGNAL_SUCCESS_FLAG | GSM_NETWORK_GET_SIGNAL_FAIL_FLAG, pdTRUE, pdFALSE, 300 / portTICK_PERIOD_MS);
+    if (flags & GSM_NETWORK_GET_SIGNAL_SUCCESS_FLAG) {
+        GSM_LOG_I("Network Signal is %d", _network_signal);
+        return _network_signal;
+    } else if (flags & GSM_NETWORK_GET_SIGNAL_FAIL_FLAG) {
+        GSM_LOG_E("Get network signal error");
+        return -1;
+    } else {
+        GSM_LOG_E("Get network signal timeout");
+        return -1;
+    }
+
+    return -1;
 }
 
 GSMNetwork Network;
