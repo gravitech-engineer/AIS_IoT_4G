@@ -1,13 +1,7 @@
 #include "GSMClient.h"
 #include "GSMNetwok.h"
 #include "GSM_LOG.h"
-
-struct {
-    bool itUsing = false;
-    bool connected = false;
-    QueueHandle_t rxQueue = NULL;
-    bool read_request_flag = false;
-} ClientSocketInfo[10];
+#include "GSMSocket.h"
 
 EventGroupHandle_t _gsm_client_flags = NULL;
 
@@ -78,25 +72,10 @@ GSMClient::GSMClient() {
             xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECTED_FLAG);
         });
 
-        _SIM_Base.URCRegister("+CIPRXGET: 1", [](String urcText) {
-            int socket_id = -1;
-            if (sscanf(urcText.c_str(), "+CIPRXGET: 1,%d", &socket_id) != 1) {
-                GSM_LOG_E("+CIPRXGET: 1 format fail");
-                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECT_FAIL_FLAG);
-                return;
-            }
-
-            if ((socket_id < 0) || (socket_id > 9)) {
-                GSM_LOG_E("+CIPRXGET: 1 | Socket %d is out of range", socket_id);
-                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_DISCONNAECT_FAIL_FLAG);
-                return;
-            }
-
-            ClientSocketInfo[socket_id].read_request_flag = true;
-        });
-
         setupURC = true;
     }
+
+    setup_Socket();
 }
 
 int GSMClient::connect(IPAddress ip, uint16_t port, int32_t timeout) {
