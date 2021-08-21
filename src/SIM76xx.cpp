@@ -315,4 +315,16 @@ String SIM76XX::getIMEI() {
     return imei;
 }
 
+String SIM76XX::getIMSI() {
+    GSM_LOG_I("Get IMSI...");
+    String imsi;
+    if (!_SIM_Base.sendCommandGetRespondOneLine("AT+CIMIM", &imsi, 300)) {
+        GSM_LOG_E("Get IMSI FAIL");
+        return "";
+    }
+    GSM_LOG_I("OK !, %s", imsi.c_str());
+
+    return imsi;
+}
+
 SIM76XX GSM(16, 13, 21); // Rx, Tx, PWR

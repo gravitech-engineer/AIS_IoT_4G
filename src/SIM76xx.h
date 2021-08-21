@@ -29,6 +29,7 @@ class SIM76XX {
 
         // Modem
         String getIMEI() ;
+        String getIMSI() ;
 
 
 };
