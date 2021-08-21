@@ -12,13 +12,15 @@ GSMNetwork::GSMNetwork() {
     }
 }
 
-#define GSM_NETWORK_STATUS_UPDATE_FLAG      (1 << 0)
-#define GSM_NETWORK_OPEN_UPDATE_FLAG        (1 << 1)
-#define GSM_NETWORK_CLOSE_UPDATE_FLAG       (1 << 2)
-#define GSM_NETWORK_GET_SIGNAL_SUCCESS_FLAG (1 << 3)
-#define GSM_NETWORK_GET_SIGNAL_FAIL_FLAG    (1 << 4)
-#define GSM_NETWORK_GET_CURRENT_CARRIER_SUCCESS_FLAG    (1 << 4)
-#define GSM_NETWORK_GET_CURRENT_CARRIER_FAIL_FLAG    (1 << 4)
+#define GSM_NETWORK_STATUS_UPDATE_FLAG               (1 << 0)
+#define GSM_NETWORK_OPEN_UPDATE_FLAG                 (1 << 1)
+#define GSM_NETWORK_CLOSE_UPDATE_FLAG                (1 << 2)
+#define GSM_NETWORK_GET_SIGNAL_SUCCESS_FLAG          (1 << 3)
+#define GSM_NETWORK_GET_SIGNAL_FAIL_FLAG             (1 << 4)
+#define GSM_NETWORK_GET_CURRENT_CARRIER_SUCCESS_FLAG (1 << 5)
+#define GSM_NETWORK_GET_CURRENT_CARRIER_FAIL_FLAG    (1 << 6)
+#define GSM_NETWORK_GET_DEVICE_IP_SUCCESS_FLAG       (1 << 7)
+#define GSM_NETWORK_GET_DEVICE_IP_FAIL_FLAG          (1 << 8)
 
 int _net_status = 0;
 
@@ -190,6 +192,43 @@ int GSMNetwork::getSignalStrength() {
     }
 
     return -1;
+}
+
+IPAddress _gsm_device_ip_address((uint32_t)0x00000000);
+
+IPAddress GSMNetwork::getDeviceIP() {
+    xEventGroupClearBits(_gsm_network_flags, GSM_NETWORK_GET_DEVICE_IP_SUCCESS_FLAG | GSM_NETWORK_GET_DEVICE_IP_FAIL_FLAG);
+    _SIM_Base.URCRegister("+IPADDR:", [](String urcText) {
+        _SIM_Base.URCDeregister("+IPADDR:");
+
+        char ip_address[20];
+        if (sscanf(urcText.c_str(), "+IPADDR: %20s", ip_address) != 1) {
+            GSM_LOG_E("Get ip format fail");
+            xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_GET_DEVICE_IP_FAIL_FLAG);
+        }
+
+        _gsm_device_ip_address.fromString(String(ip_address));
+        xEventGroupSetBits(_gsm_network_flags, GSM_NETWORK_GET_DEVICE_IP_SUCCESS_FLAG);
+    });
+
+    if (!_SIM_Base.sendCommandFindOK("AT+IPADDR")) {
+        GSM_LOG_E("Send get ip command error");
+        return IPAddress((uint32_t)0x00000000);
+    }
+
+    EventBits_t flags = xEventGroupWaitBits(_gsm_network_flags, GSM_NETWORK_GET_DEVICE_IP_SUCCESS_FLAG | GSM_NETWORK_GET_DEVICE_IP_FAIL_FLAG, pdTRUE, pdFALSE, 300 / portTICK_PERIOD_MS);
+    if (flags & GSM_NETWORK_GET_DEVICE_IP_SUCCESS_FLAG) {
+        GSM_LOG_I("Device IP is %s", _gsm_device_ip_address.toString().c_str());
+        return _gsm_device_ip_address;
+    } else if (flags & GSM_NETWORK_GET_DEVICE_IP_FAIL_FLAG) {
+        GSM_LOG_E("Get ip error");
+        return IPAddress((uint32_t)0x00000000);
+    } else {
+        GSM_LOG_E("Get ip timeout");
+        return IPAddress((uint32_t)0x00000000);
+    }
+
+    return IPAddress((uint32_t)0x00000000);
 }
 
 GSMNetwork Network;

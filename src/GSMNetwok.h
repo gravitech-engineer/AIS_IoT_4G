@@ -16,6 +16,9 @@ class GSMNetwork {
         // Real Network
         String getCurrentCarrier() ;
         int getSignalStrength() ;
+        IPAddress getDeviceIP() ;
+
+        bool pingIP(String host) ;
 
 };
 
