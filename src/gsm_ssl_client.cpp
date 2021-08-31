@@ -19,7 +19,7 @@
 #  warning "Please configure IDF framework to include mbedTLS -> Enable pre-shared-key ciphersuites and activate at least one cipher"
 #else
 
-const char *pers = "esp32-tls";
+static const char *pers = "esp32-tls";
 
 static int _handle_error(int err, const char * function, int line)
 {
