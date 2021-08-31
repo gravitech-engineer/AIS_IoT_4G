@@ -1,4 +1,4 @@
-# SIM7600x Library for Arduino
+# SIM76xx Library for Arduino
 
  > ไลบารี่นี้อยู่ในระหว่างการพัฒนา ไม่แนะนำให้ใช้งานบน Production
 
