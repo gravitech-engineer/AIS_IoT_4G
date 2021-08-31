@@ -1,0 +1,41 @@
+#######################################
+# Syntax Coloring Map For SIM76xx
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+GSM KEYWORD1
+Network KEYWORD1
+GSMClient KEYWORD1
+GSMClientSecure KEYWORD1
+GSMUdp KEYWORD1
+GPS KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin	KEYWORD2
+
+getCurrentCarrier	KEYWORD2
+getSignalStrength	KEYWORD2
+getDeviceIP	KEYWORD2
+pingIP	KEYWORD2
+
+connect	KEYWORD2
+
+available	KEYWORD2
+latitude	KEYWORD2
+longitude	KEYWORD2
+speed	KEYWORD2
+course	KEYWORD2
+variation	KEYWORD2
+altitude	KEYWORD2
+satellites	KEYWORD2
+getTime	KEYWORD2
+standby	KEYWORD2
+wakeup	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
