@@ -80,19 +80,19 @@
 โค้ดโปรแกรมตัวอย่างอยู่ในโฟลเดอร์ `examples` แยกตามหมวดหมู่ ดังนี้
 
  * `GPS`
-   * [Location](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GPS/Location/Location.ino) อ่านพิกัดจาก GNSS แสดงผลบน Serial Monitor
-   * [UnixTime](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GPS/UnixTime/UnixTime.ino) อ่านค่าเวลา่ Unix (Timestamp) แสดงผลบน Serial Monitor
-   * [LocalTime](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GPS/LocalTime/LocalTime.ino) อ่านค่าเวลาประเทศไทย แสดงผลบน Serial Monitor
+   * [Location](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GPS/Location/Location.ino) - อ่านพิกัดจาก GNSS แสดงผลบน Serial Monitor
+   * [UnixTime](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GPS/UnixTime/UnixTime.ino) - อ่านค่าเวลา่ Unix (Timestamp) แสดงผลบน Serial Monitor
+   * [LocalTime](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GPS/LocalTime/LocalTime.ino) - อ่านค่าเวลาประเทศไทย แสดงผลบน Serial Monitor
  * `GSM`
-   * [Read_IMEI](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/Read_IMEI/Read_IMEI.ino) อ่านหมายเลข IMEI แสดงผลบน Serial Monitor
-   * [Read_IMSI](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/Read_IMSI/Read_IMSI.ino) อ่านหมายเลข IMSI แสดงผลบน Serial Monitor
-   * [LowPowerMode](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/LowPowerMode/LowPowerMode.ino) ตัวอย่างการสั่งให้ SIM7600 เข้าโหมดประหยัดพลังงาน
+   * [Read_IMEI](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/Read_IMEI/Read_IMEI.ino) - อ่านหมายเลข IMEI แสดงผลบน Serial Monitor
+   * [Read_IMSI](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/Read_IMSI/Read_IMSI.ino) - อ่านหมายเลข IMSI แสดงผลบน Serial Monitor
+   * [LowPowerMode](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/LowPowerMode/LowPowerMode.ino) - ตัวอย่างการสั่งให้ SIM7600 เข้าโหมดประหยัดพลังงาน
  * `Network`
-   * [Ping](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Ping/Ping.ino) Ping เว็บ www.ais.co.th
-   * [Read_Device_IP](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Device_IP/Read_Device_IP.ino) อ่านหมายเลข IP แสดงผลบน Serial Monitor
-   * [Read_Operator_Name](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Operator_Name/Read_Operator_Name.ino) อ่านชื่อเครือข่ายที่เชื่อมต่ออยู่
-   * [Read_Signal_Strength](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Signal_Strength/Read_Signal_Strength.ino) อ่านความแรงสัญญาณ 4G
+   * [Ping](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Ping/Ping.ino) - Ping เว็บ www.ais.co.th
+   * [Read_Device_IP](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Device_IP/Read_Device_IP.ino) - อ่านหมายเลข IP แสดงผลบน Serial Monitor
+   * [Read_Operator_Name](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Operator_Name/Read_Operator_Name.ino) - อ่านชื่อเครือข่ายที่เชื่อมต่ออยู่
+   * [Read_Signal_Strength](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Signal_Strength/Read_Signal_Strength.ino) - อ่านความแรงสัญญาณ 4G
  * `TCP`
-   * [GSMClient](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/TCP/GSMClient/GSMClient.ino) ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP
-   * [GSMClientSecure](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/TCP/GSMClientSecure/GSMClientSecure.ino) ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP/TLS
+   * [GSMClient](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/TCP/GSMClient/GSMClient.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP
+   * [GSMClientSecure](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/TCP/GSMClientSecure/GSMClientSecure.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP/TLS
  
