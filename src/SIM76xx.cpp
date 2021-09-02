@@ -9,6 +9,10 @@ EventGroupHandle_t _sim_general_flags = NULL;
 #define SIM_GET_TIME_FROM_RTC_SUCCESS_FLAG       (1 << 3)
 #define SIM_GET_POWER_MODE_FAIL_FLAG             (1 << 4)
 #define SIM_GET_POWER_MODE_SUCCESS_FLAG          (1 << 5)
+#define SIM_READY_FLAG                           (1 << 6)
+#define SIM_CPIN_READY_FLAG                      (1 << 7)
+#define SIM_SMS_DONE_FLAG                        (1 << 8)
+#define SIM_PB_DONE_FLAG                         (1 << 9)
 
 SIM76XX::SIM76XX(int rx_pin, int tx_pin, int pwr_pin) {
     this->rx_pin = rx_pin;
@@ -49,6 +53,8 @@ bool SIM76XX::begin() {
     }
 
     if (!sim_is_ready) {
+        xEventGroupClearBits(_sim_general_flags, SIM_READY_FLAG | SIM_CPIN_READY_FLAG | SIM_SMS_DONE_FLAG | SIM_PB_DONE_FLAG);
+
         // Turn ON EC-21
         digitalWrite(this->pwr_pin, LOW);
         delay(100);
@@ -59,45 +65,45 @@ bool SIM76XX::begin() {
 
         while (_SIM_Base.available()) (void)_SIM_Base.read();
 
-        GSM_LOG_I("Wait Ready... (Max 30s)");
-        if (!_SIM_Base.wait("\r\nRDY\r\n", 30 * 1000)) { // Max wait 30s
-            GSM_LOG_I("Timeout");
-            return false;
+        _SIM_Base.URCRegister("RDY", [](String urcText) {
+            _SIM_Base.URCDeregister("RDY");
+
+            xEventGroupSetBits(_sim_general_flags, SIM_READY_FLAG);
+        });
+        _SIM_Base.URCRegister("+CPIN: READY", [](String urcText) {
+            _SIM_Base.URCDeregister("+CPIN: READY");
+
+            xEventGroupSetBits(_sim_general_flags, SIM_CPIN_READY_FLAG);
+        });
+        _SIM_Base.URCRegister("SMS DONE", [](String urcText) {
+            _SIM_Base.URCDeregister("SMS DONE");
+
+            xEventGroupSetBits(_sim_general_flags, SIM_SMS_DONE_FLAG);
+        });
+        _SIM_Base.URCRegister("PB DONE", [](String urcText) {
+            _SIM_Base.URCDeregister("PB DONE");
+
+            xEventGroupSetBits(_sim_general_flags, SIM_PB_DONE_FLAG);
+        });
+
+        // EventBits_t flags = xEventGroupWaitBits(_sim_general_flags, SIM_READY_FLAG | SIM_CPIN_READY_FLAG | SIM_SMS_DONE_FLAG | SIM_PB_DONE_FLAG, pdTRUE, pdTRUE, 30000 / portTICK_PERIOD_MS); // Max 30s
+        EventBits_t flags = xEventGroupWaitBits(_sim_general_flags, SIM_READY_FLAG | SIM_SMS_DONE_FLAG | SIM_PB_DONE_FLAG, pdTRUE, pdTRUE, 30000 / portTICK_PERIOD_MS); // Max 30s
+        if ((flags & SIM_READY_FLAG) == 0) {
+            GSM_LOG_E("RDY wait timeout");
+            sim_is_ready = false;
+        /*} else if ((flags & SIM_CPIN_READY_FLAG) == 0) {
+            GSM_LOG_E("+CPIN: READY wait timeout");
+            sim_is_ready = false;*/
+        } else if ((flags & SIM_SMS_DONE_FLAG) == 0) {
+            GSM_LOG_E("SMS DONE wait timeout");
+            sim_is_ready = false;
+        } else if ((flags & SIM_PB_DONE_FLAG) == 0) {
+            GSM_LOG_E("PB DONE wait timeout");
+            sim_is_ready = false;
+        } else {
+            GSM_LOG_I("Ready !");
+            sim_is_ready = true;
         }
-
-        GSM_LOG_I("Ready !");
-
-        GSM_LOG_I("Wait CPIN Ready... (Max 30s)");
-        if (!_SIM_Base.wait("\r\n+CPIN: READY\r\n", 5 * 1000)) { // Max wait 5s
-            GSM_LOG_I("Timeout");
-            return false;
-        }
-        GSM_LOG_I("CPIN Ready !");
-
-        GSM_LOG_I("Wait SMS Ready... (Max 5s)");
-        if (!_SIM_Base.wait("\r\nSMS DONE\r\n", 5 * 1000)) { // Max wait 5s
-            GSM_LOG_I("Timeout");
-            return false;
-        }
-
-        GSM_LOG_I("SMS Ready !");
-
-        GSM_LOG_I("Wait PB Ready... (Max 30s)");
-        if (!_SIM_Base.wait("\r\nPB DONE\r\n", 5 * 1000)) { // Max wait 5s
-            GSM_LOG_I("Timeout");
-            return false;
-        }
-        GSM_LOG_I("PB Ready !");
-
-        // Test via AT
-        GSM_LOG_I("Test AT command (2)...");
-        if (!this->AT()) {
-            GSM_LOG_I("FAIL, SIM76xx not start");
-            return false;
-        }
-        GSM_LOG_I("OK !");
-
-        sim_is_ready = true;
     }
 
     if (!sim_is_ready) {
