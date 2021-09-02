@@ -8,10 +8,10 @@
 
 ใช้สั่งงานโมดูล SIM7600 บนบอร์ดเบื้องต้น มีคำสั่งดังนี้
 
-  * `GSM.begin()` ใช้สั่งให้โมดูล SIM7600 เริ่มทำงาน
-  * `GSM.shutdown()` ใช้สั่งให้โมดูล SIM7600 หยุดทำงาน
-  * `GSM.lowPowerMode()` ใช้สั่งให้โมดูล SIM7600 เข้าโหมดประหยัดพลังงาน (โหมดเครื่องบิน)
-  * `GSM.noLowPowerMode()` ใช้สั่งให้โมดูล SIM7600 ออกจากโหมดประหยัดพลังงาน
+  * `GSM.begin()` สั่งให้โมดูล SIM7600 เริ่มทำงาน
+  * `GSM.shutdown()` สั่งให้โมดูล SIM7600 หยุดทำงาน
+  * `GSM.lowPowerMode()` สั่งให้โมดูล SIM7600 เข้าโหมดประหยัดพลังงาน (โหมดเครื่องบิน)
+  * `GSM.noLowPowerMode()` สั่งให้โมดูล SIM7600 ออกจากโหมดประหยัดพลังงาน
   * `GSM.getIMEI()` อ่านหมายเลข IMEI ของโมดูล
   * `GSM.getIMSI()` อ่านหมายเลข IMSI
 
@@ -19,9 +19,9 @@
 
 คำสั่งเกี่ยวกับการเชื่อมต่อเครือข่าย 4G มีดังนี้
 
-  * `Network.getCurrentCarrier()` ใช้อ่านชื่อเครือข่ายที่เชื่อมต่ออยู่
-  * `Network.getSignalStrength()` ใช้อ่านความแรงของสัญญาณ 4G
-  * `Network.getDeviceIP()` ใช้อ่านหมายเลข IP ของอุปกรณ์
+  * `Network.getCurrentCarrier()` อ่านชื่อเครือข่ายที่เชื่อมต่ออยู่
+  * `Network.getSignalStrength()` อ่านความแรงของสัญญาณ 4G
+  * `Network.getDeviceIP()` อ่านหมายเลข IP ของอุปกรณ์
   * `Network.pingIP()` ใช้ Ping ไปที่ Host ใด ๆ เพื่อทดสอบการเชื่อมต่ออินเตอร์เน็ต
 
 ## `#include <GSMClient.h>`
@@ -29,12 +29,12 @@
 *(สืบทอดคลาส Client)* ใช้เชื่อมต่อ TCP ผ่านเครือข่าย 4G มีคำสั่งดังนี้
 
   * `GSMClient client` สร้าง Socket ของ TCP และสร้างออปเจค client
-  * `client.connect()` ใช้สั่งเชื่อมต่อไปที่ TCP Server
-  * `client.connected()` ใช้ตรวจสอบสถานะการเชื่อมต่อ TCP Server
-  * `client.write()` ใช้ส่งข้อมูลไปที่ TCP Server
-  * `client.available()` ใช้ตรวจสอบจำนวนข้อมูลที่ TCP Server ส่งมา
-  * `client.read()` ใช้อ่านข้อมูลที่ TCP Server ส่งมา
-  * `client.stop()` ใช้ตัดการเชื่อมต่อกับ TCP Server
+  * `client.connect()` สั่งเชื่อมต่อไปที่ TCP Server
+  * `client.connected()` ตรวจสอบสถานะการเชื่อมต่อ TCP Server
+  * `client.write()` ส่งข้อมูลไปที่ TCP Server
+  * `client.available()` ตรวจสอบจำนวนข้อมูลที่ TCP Server ส่งมา
+  * `client.read()` อ่านข้อมูลที่ TCP Server ส่งมา
+  * `client.stop()` ตัดการเชื่อมต่อกับ TCP Server
 
 ## `#include <GSMClientSecure.h>`
 
@@ -47,8 +47,8 @@
 
 ใช้อ่านค่าพิกัด เวลา ความเร็ว จาก GNSS (GPS) มีคำสั่งดังนี้
 
- * `GPS.begin()` สั่งเริ่มต้นใช้งาน GNSS
- * `GPS.available()` ใช้ตรวจสอบสถานะพิกัดจาก GNSS
+ * `GPS.begin()` เริ่มต้นใช้งาน GNSS
+ * `GPS.available()` ตรวจสอบสถานะการจับสัญญาณ GNSS (จับสัญญาณได้แล้ว/ยังจับสัญญาณไม่ได้)
  * `GPS.latitude()` อ่านค่าละติจูด
  * `GPS.longitude()` อ่านค่าลองจิจูด
  * `GPS.speed()` อ่านค่าความเร็ว
