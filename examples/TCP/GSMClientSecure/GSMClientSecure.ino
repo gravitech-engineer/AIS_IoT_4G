@@ -11,7 +11,7 @@ void setup() {
   GSM.begin();
 
   client.setInsecure(); // Disable Check CA
-  Serial.println(client.connect("fireboard.xyz", 80));
+  Serial.println(client.connect("fireboard.xyz", 443));
 
   if (client.connected()) {
     client.print("GET / HTTP/1.1\r\nHost: fireboard.xyz\r\nConnection: close\r\n\r\n");
