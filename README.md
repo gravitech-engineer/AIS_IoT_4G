@@ -75,7 +75,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 |--|--|--|--|
 | temperature | temperature | Telemetry | Temperature |
 | humidity | humidity | Telemetry | Relative humidity |
-| light | light | Command |
+| light | light | Command |   |
 
  * ของ light (ที่เป็น Command) ให้กดเปิดรายละเอียดขึ้นมา แล้ว
    * กดเปิดใช้ Request
