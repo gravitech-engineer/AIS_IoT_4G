@@ -11,6 +11,8 @@ class RS485Class : public HardwareSerial {
     private:
         int dir_pin = -1;
 
+        uint16_t CRC16(uint8_t *buf, int len) ;
+
     public:
         RS485Class(int n) ;
 
@@ -19,6 +21,20 @@ class RS485Class : public HardwareSerial {
         void endTransmission() ;
         void receive() ;
         void noReceive() ;
+
+        // Modbus RTU
+        int coilRead(int address) ;
+        int coilRead(int id, int address) ;
+        int discreteInputRead(int address) ;
+        int discreteInputRead(int id, int address) ;
+        long holdingRegisterRead(int address) ;
+        long holdingRegisterRead(int id, int address) ;
+        long inputRegisterRead(int address) ;
+        long inputRegisterRead(int id, int address) ;
+        int coilWrite(int address, uint8_t value) ;
+        int coilWrite(int id, int address, uint8_t value) ;
+        int holdingRegisterWrite(int address, uint16_t value) ;
+        int holdingRegisterWrite(int id, int address, uint16_t value) ;
 
 };
 
