@@ -95,9 +95,13 @@
  * `TCP`
    * [GSMClient](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/TCP/GSMClient/GSMClient.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP
    * [GSMClientSecure](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/TCP/GSMClientSecure/GSMClientSecure.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP/TLS
- * `MQTT` - ตัวอย่างในโฟลเดอร์นี้จำเป็นต้องติดตั้งไลบารี่ [PubSubClient](https://github.com/knolleary/pubsubclient) เพิ่มเติม
+ * `MQTT` - ตัวอย่างในโฟลเดอร์นี้ดัดแปลงมาจาก [PubSubClient](https://github.com/knolleary/pubsubclient) ศึกษารายละเอียดเพิ่มเติมได้ในลิ้งต้นฉบับ
    * [mqtt_basic](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/MQTT/mqtt_basic/mqtt_basic.ino) - ตัวอย่างการเชื่อมต่อ MQTT อย่างง่าย ส่งข้อมูลเข้า Topic `outTopic` และ Subscribe Topic `inTopic`
    * [mqtt_auth](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/MQTT/mqtt_auth/mqtt_auth.ino) - ตัวอย่างการเชื่อมต่อ MQTT แบบต้องใช้ Username และ Password
    * [mqtt_publish_in_callback](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/MQTT/mqtt_publish_in_callback/mqtt_publish_in_callback.ino) - ตัวอย่างการส่งข้อมูลเข้า Topic `outTopic` ในฟังก์ชั่น Callback
  * `Sensor`
-   * `SHT40_Read`- อ่านอุณหภูมิและความชื้นจากเซ็นเซอร์บนบอร์ด แสดงผลบน Serial Monitor
+   * [SHT40_Read](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Sensor/SHT40_Read/SHT40_Read.ino)- อ่านอุณหภูมิและความชื้นจากเซ็นเซอร์บนบอร์ด แสดงผลบน Serial Monitor
+ * `Azure IoT`
+   * [IoT_Hub_sample](https://github.com/gravitech-engineer/AIS_IoT_4G/blob/main/examples/Azure_IoT/IoT_Hub_sample/IoT_Hub_sample.ino) - ตัวอย่างการอ่านค่าอุณหภูมิและความชื้นส่งค่าขึ้น Azure IoT Hub
+   * [IoT_Central_sample](https://github.com/gravitech-engineer/AIS_IoT_4G/blob/main/examples/Azure_IoT/IoT_Central_sample/IoT_Central_sample.ino) - ตัวอย่างการอ่านค่าอุณหภูมิและความชื้นส่งค่าขึ้น Azure IoT Central
+  
