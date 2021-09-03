@@ -8,7 +8,7 @@
 
 class GSMClient : public Client {   
     private:
-        uint8_t sock_id = -1;
+        int8_t sock_id = -1;
         bool _connected = false;
         
     public:

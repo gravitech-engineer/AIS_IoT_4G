@@ -181,6 +181,11 @@ uint8_t *_data_send_buf = NULL;
 uint16_t _data_send_size = 0;
 
 size_t GSMClient::write(const uint8_t *buf, size_t size) {
+    if (this->sock_id == -1) {
+        GSM_LOG_E("Socket not available");
+        return 0;
+    }
+
     if (!ClientSocketInfo[this->sock_id].connected) {
         return 0;
     }
@@ -298,12 +303,12 @@ int data_in_buffer_length = 0;
 
 int GSMClient::available() {
     if (this->sock_id == -1) {
-        // GSM_LOG_I("No socket !");
+        GSM_LOG_E("Socket not available");
         return 0;
     }
 
     if (!ClientSocketInfo[this->sock_id].rxQueue) {
-        // GSM_LOG_I("No queue !");
+        GSM_LOG_E("No queue !");
         return 0;
     }
 
