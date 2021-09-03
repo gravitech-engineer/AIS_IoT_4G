@@ -27,8 +27,8 @@ bool SHT40Class::read() {
     uint8_t checksum_t = rx_bytes[2];
     uint16_t rh_ticks = rx_bytes[3] * 256 + rx_bytes[4];
     uint8_t checksum_rh = rx_bytes[5];
-    this->t_degC = -45 + 175 * t_ticks/65535;
-    this->rh_pRH = -6 + 125 * rh_ticks/65535;
+    this->t_degC = -45.0f + 175.0f * t_ticks / 65535.0f;
+    this->rh_pRH = -6.0f + 125.0f * rh_ticks / 65535.0f;
 
     this->rh_pRH = max(min(rh_pRH, 100.0f), 0.0f);
 
