@@ -1,0 +1,56 @@
+[
+  {
+    "@id": "dtmi:testWioTerminalArtron:n4GDevKit3b6;1",
+    "@type": "Interface",
+    "contents": [
+      {
+        "@id": "dtmi:testWioTerminalArtron:n4GDevKit3b6:temperature;1",
+        "@type": [
+          "Telemetry",
+          "Temperature"
+        ],
+        "displayName": {
+          "en": "temperature"
+        },
+        "name": "temperature",
+        "schema": "double"
+      },
+      {
+        "@id": "dtmi:testWioTerminalArtron:n4GDevKit3b6:humidity;1",
+        "@type": [
+          "Telemetry",
+          "RelativeHumidity"
+        ],
+        "displayName": {
+          "en": "humidity"
+        },
+        "name": "humidity",
+        "schema": "double"
+      },
+      {
+        "@id": "dtmi:testWioTerminalArtron:n4GDevKit3b6:light;1",
+        "@type": "Command",
+        "commandType": "synchronous",
+        "displayName": {
+          "en": "light"
+        },
+        "name": "light",
+        "request": {
+          "@type": "CommandPayload",
+          "displayName": {
+            "en": "Level"
+          },
+          "name": "level",
+          "schema": "integer"
+        }
+      }
+    ],
+    "displayName": {
+      "en": "AIS 4G Board"
+    },
+    "@context": [
+      "dtmi:iotcentral:context;2",
+      "dtmi:dtdl:context;2"
+    ]
+  }
+]
