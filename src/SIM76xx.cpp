@@ -86,14 +86,13 @@ bool SIM76XX::begin() {
             xEventGroupSetBits(_sim_general_flags, SIM_PB_DONE_FLAG);
         });
 
-        // EventBits_t flags = xEventGroupWaitBits(_sim_general_flags, SIM_READY_FLAG | SIM_CPIN_READY_FLAG | SIM_SMS_DONE_FLAG | SIM_PB_DONE_FLAG, pdTRUE, pdTRUE, 30000 / portTICK_PERIOD_MS); // Max 30s
-        EventBits_t flags = xEventGroupWaitBits(_sim_general_flags, SIM_READY_FLAG | SIM_SMS_DONE_FLAG | SIM_PB_DONE_FLAG, pdTRUE, pdTRUE, 30000 / portTICK_PERIOD_MS); // Max 30s
+        EventBits_t flags = xEventGroupWaitBits(_sim_general_flags, SIM_READY_FLAG | SIM_CPIN_READY_FLAG | SIM_SMS_DONE_FLAG | SIM_PB_DONE_FLAG, pdTRUE, pdTRUE, 30000 / portTICK_PERIOD_MS); // Max 30s
         if ((flags & SIM_READY_FLAG) == 0) {
             GSM_LOG_E("RDY wait timeout");
             sim_is_ready = false;
-        /*} else if ((flags & SIM_CPIN_READY_FLAG) == 0) {
+        } else if ((flags & SIM_CPIN_READY_FLAG) == 0) {
             GSM_LOG_E("+CPIN: READY wait timeout");
-            sim_is_ready = false;*/
+            sim_is_ready = false;
         } else if ((flags & SIM_SMS_DONE_FLAG) == 0) {
             GSM_LOG_E("SMS DONE wait timeout");
             sim_is_ready = false;
