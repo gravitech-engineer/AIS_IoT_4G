@@ -1,4 +1,4 @@
-# AIS IoT 4G Library for Arduino
+# AIS 4G Board Library for Arduino
 
  > ไลบารี่นี้อยู่ในระหว่างการพัฒนา ไม่แนะนำให้ใช้งานบน Production
 
