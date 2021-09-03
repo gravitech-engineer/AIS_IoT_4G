@@ -333,4 +333,4 @@ String SIM76XX::getIMSI() {
     return imsi;
 }
 
-SIM76XX GSM(16, 13, 21); // Rx, Tx, PWR
+SIM76XX GSM(14, 13, 12); // Rx, Tx, PWR
