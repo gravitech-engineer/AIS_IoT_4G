@@ -99,3 +99,5 @@
    * [mqtt_basic](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/MQTT/mqtt_basic/mqtt_basic.ino) - ตัวอย่างการเชื่อมต่อ MQTT อย่างง่าย ส่งข้อมูลเข้า Topic `outTopic` และ Subscribe Topic `inTopic`
    * [mqtt_auth](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/MQTT/mqtt_auth/mqtt_auth.ino) - ตัวอย่างการเชื่อมต่อ MQTT แบบต้องใช้ Username และ Password
    * [mqtt_publish_in_callback](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/MQTT/mqtt_publish_in_callback/mqtt_publish_in_callback.ino) - ตัวอย่างการส่งข้อมูลเข้า Topic `outTopic` ในฟังก์ชั่น Callback
+ * `Sensor`
+   * `SHT40_Read`- อ่านอุณหภูมิและความชื้นจากเซ็นเซอร์บนบอร์ด แสดงผลบน Serial Monitor
