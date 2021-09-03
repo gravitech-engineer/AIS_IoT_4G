@@ -27,6 +27,8 @@ int GSMUdp::beginPacket(const char *host, uint16_t port) {
     this->write_host[host_len] = 0; // END of String
 
     this->write_port = port;
+
+    return 0;
 }
 
 int GSMUdp::endPacket() {
@@ -34,6 +36,8 @@ int GSMUdp::endPacket() {
 
     free(this->write_buff);
     this->write_buff = NULL;
+
+    return 0;
 }
 
 size_t GSMUdp::write(uint8_t c) {
@@ -49,27 +53,27 @@ size_t GSMUdp::write(const uint8_t *buffer, size_t size) {
 }
 
 int GSMUdp::parsePacket() {
-
+    return -1;
 }
 
 int GSMUdp::available() {
-
+    return -1;
 }
 
 int GSMUdp::read() {
-
+    return -1;
 }
 
 int GSMUdp::read(unsigned char* buffer, size_t len) {
-
+    return -1;
 }
 
 int GSMUdp::read(char* buffer, size_t len) {
-
+    return -1;
 }
 
 int GSMUdp::peek() {
-
+    return -1;
 }
 
 void GSMUdp::flush() {

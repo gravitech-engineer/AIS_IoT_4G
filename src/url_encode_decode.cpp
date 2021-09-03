@@ -72,6 +72,7 @@ String urlEncode(String str)
         encodedString+=code1;
         //encodedString+=code2;
       }
+      (void)code2;
       yield();
     }
     return encodedString;

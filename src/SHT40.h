@@ -22,10 +22,10 @@ class SHT40Class {
     public:
         SHT40Class(TwoWire *wire = &Wire) ;
 
-        bool begin(uint8_t address = 0x44) ;
+        void begin(uint8_t address = 0x44) ;
         float readTemperature(int units = CELSIUS) ;
         float readHumidity() ;
-        bool end() ;
+        void end() ;
 
 };
 
