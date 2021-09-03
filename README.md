@@ -79,12 +79,6 @@
  * [Arduino - GSM](https://www.arduino.cc/en/Reference/GSM)
  * [Arduino - Arduino MKR GPS](https://www.arduino.cc/en/Reference/ArduinoMKRGPS)
 
-## ไลบารี่แนะนำให้ใช้งานร่วมกัน
-
- * [Azure IoT Library]() - ไลบารี่เชื่อมต่อ Azure IoT Hub / Azure IoT Central ด้วย AIS IoT 4G board
- * [PubSubClient](https://github.com/knolleary/pubsubclient) - ไลบารี่เชื่อมต่อ MQTT(S)
- * [HttpClient](https://github.com/amcewen/HttpClient) - ไลบารี่เชื่อมต่อ HTTP(S)
-
 ## ตัวอย่างโค้ดโปรแกรม
 
 โค้ดโปรแกรมตัวอย่างอยู่ในโฟลเดอร์ `examples` แยกตามหมวดหมู่ ดังนี้
@@ -115,3 +109,7 @@
    * [IoT_Hub_sample](https://github.com/gravitech-engineer/AIS_IoT_4G/blob/main/examples/Azure_IoT/IoT_Hub_sample/IoT_Hub_sample.ino) - ตัวอย่างการอ่านค่าอุณหภูมิและความชื้นส่งค่าขึ้น Azure IoT Hub
    * [IoT_Central_sample](https://github.com/gravitech-engineer/AIS_IoT_4G/blob/main/examples/Azure_IoT/IoT_Central_sample/IoT_Central_sample.ino) - ตัวอย่างการอ่านค่าอุณหภูมิและความชื้นส่งค่าขึ้น Azure IoT Central
   
+## ไลบารี่แนะนำให้ใช้งานร่วมกัน
+
+ * [HttpClient](https://github.com/amcewen/HttpClient) - ไลบารี่เชื่อมต่อ HTTP(S)
+
