@@ -1,4 +1,4 @@
-#include "RS485..h"
+#include "RS485.h"
 
 RS485Class::RS485Class(HardwareSerial *uart) {
     this->uart = uart;

@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <RS485..h>
+#include <RS485.h>
 
 void setup() {
   Serial.begin(115200);
