@@ -125,6 +125,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
  * สังเกตว่าใน Serial Monitor จะแสดงผลข้อความแจ้งได้รับ Command ใหม่เข้ามา พร้อมหลอด LED E15 ติด-ดับ ตามคำสั่งที่ส่งเข้ามา
 
 ## คำสั่งที่มีให้ใช้งาน
+
 ### `#include <GSM.h>`
 
 ใช้สั่งงานโมดูล SIM7600 บนบอร์ดเบื้องต้น มีคำสั่งดังนี้
@@ -135,6 +136,9 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
   * `GSM.noLowPowerMode()` สั่งให้โมดูล SIM7600 ออกจากโหมดประหยัดพลังงาน
   * `GSM.getIMEI()` อ่านหมายเลข IMEI ของโมดูล
   * `GSM.getIMSI()` อ่านหมายเลข IMSI
+  * `GSM.pinMode()` กำหนดโหมด INPUT/OUTPUT ของขา S3 ถึง S77
+  * `GSM.digitalWrite()` กำหนดเขียนสถานะลอจิก HIGH / LOW ไปที่ขา S3 ถึง S77
+  * `GSM.digitalRead()` อ่านสถานะลอจิก HIGH / LOW จากขา S3 ถึง S77
 
 ### `#include <GSMNetwok.h>`
 
@@ -247,6 +251,8 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * [Read_IMEI](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/Read_IMEI/Read_IMEI.ino) - อ่านหมายเลข IMEI แสดงผลบน Serial Monitor
    * [Read_IMSI](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/Read_IMSI/Read_IMSI.ino) - อ่านหมายเลข IMSI แสดงผลบน Serial Monitor
    * [LowPowerMode](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/LowPowerMode/LowPowerMode.ino) - ตัวอย่างการสั่งให้ SIM7600 เข้าโหมดประหยัดพลังงาน
+   * [digitalWrite_Sx_pin](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/digitalWrite_Sx_pin/digitalWrite_Sx_pin.ino) สั่งให้สถานะลอจิกขา S3 เป็น HIGH/LOW ทุก ๆ 500 วินาที (โปรแกรมไฟกระพริบ)
+   * [digitalRead_Sx_pin](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/digitalRead_Sx_pin/digitalRead_Sx_pin.ino) อ่านสถานะลอจิกขา S77 แสดงผลบน Serial Monitor
  * `Network`
    * [Ping](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Ping/Ping.ino) - Ping เว็บ www.ais.co.th
    * [Read_Device_IP](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Device_IP/Read_Device_IP.ino) - อ่านหมายเลข IP แสดงผลบน Serial Monitor
