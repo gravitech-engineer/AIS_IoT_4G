@@ -394,13 +394,13 @@ void URCServiceTask(void*) {
 
         while (_urc_service_data_buffer_index < _urc_service_data_buffer_size) {
             char c = _urc_service_data_buffer[_urc_service_data_buffer_index++];
-
+            
             // GSM_LOG_I("Rev: %c", c);
             if (state == 0) {
                 if (c == '\r') {
                     if (commandRecheckBuff.length() > 0) {
                         GSM_LOG_I("Rev command recheck: %s", commandRecheckBuff.c_str());
-                        if (commandRecheckBuff == lastCommand) {
+                        if (commandRecheckBuff.indexOf(lastCommand) >= 0) {
                             xEventGroupSetBits(_urc_flags, URC_COMMAND_RECHECK_FLAG);
                         } else {
                             line_after_recheck = commandRecheckBuff;
@@ -440,8 +440,12 @@ void URCServiceTask(void*) {
                 if (c == '\n') {
                     URCProcess(responseBuff);
                     responseBuff.clear();
+                    state = 0;
+                } else if (c == '\r') { // Found \r\r
+                    state = 3;
+                } else {
+                    state = 0;
                 }
-                state = 0;
             }
         }
         free(_urc_service_data_buffer);

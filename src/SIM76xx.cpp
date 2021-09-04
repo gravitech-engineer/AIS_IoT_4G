@@ -13,6 +13,8 @@ EventGroupHandle_t _sim_general_flags = NULL;
 #define SIM_CPIN_READY_FLAG                      (1 << 7)
 #define SIM_SMS_DONE_FLAG                        (1 << 8)
 #define SIM_PB_DONE_FLAG                         (1 << 9)
+#define SIM_GET_GPIO_VALUE_FAIL_FLAG             (1 << 10)
+#define SIM_GET_GPIO_VALUE_SUCCESS_FLAG          (1 << 11)
 
 SIM76XX::SIM76XX(int rx_pin, int tx_pin, int pwr_pin) {
     this->rx_pin = rx_pin;
@@ -330,6 +332,102 @@ String SIM76XX::getIMSI() {
     GSM_LOG_I("OK !, %s", imsi.c_str());
 
     return imsi;
+}
+
+bool SIM76XX::checkGPIOSupport(int pin) {
+    if (pin == 3) return true;
+    if (pin == 6) return true;
+    if (pin == 40) return true;
+    if (pin == 41) return true;
+    if (pin == 43) return true;
+    if (pin == 44) return true;
+    if (pin == 77) return true;
+
+    return false;
+}
+
+bool SIM76XX::pinMode(int pin, int mode) {
+    if (!this->checkGPIOSupport(pin)) {
+        return false;
+    }
+
+    if ((pin == 3) || (pin == 40) || (pin == 44)) { // Only 3, 40, 44 use AT+CGFUNC=x,0 to set GPIO function
+        if (!_SIM_Base.sendCommandFindOK("AT+CGFUNC=" + String(pin) + ",0")) {
+            GSM_LOG_E("Send command set GPIO function error timeout");
+            return false;
+        }
+    }
+
+    if (!_SIM_Base.sendCommandFindOK("AT+CGDRT=" + String(pin) + "," + String(mode == OUTPUT ? 1 : 0))) {
+        GSM_LOG_E("Send command set GPIO direction error timeout");
+        return false;
+    }
+
+    return true;
+}
+
+bool SIM76XX::digitalWrite(int pin, int value) {
+    if (!this->checkGPIOSupport(pin)) {
+        return false;
+    }
+
+    if (!_SIM_Base.sendCommandFindOK("AT+CGSETV=" + String(pin) + "," + String(value == HIGH ? 1 : 0))) {
+        GSM_LOG_E("Send command set GPIO direction error timeout");
+        return false;
+    }
+
+    return true;
+}
+
+int _gpio_focus = 0, _gpio_value = 0;
+
+int SIM76XX::digitalRead(int pin) {
+    if (!this->checkGPIOSupport(pin)) {
+        return 0;
+    }
+
+    _gpio_focus = pin;
+
+    xEventGroupClearBits(_sim_general_flags, SIM_GET_GPIO_VALUE_SUCCESS_FLAG | SIM_GET_GPIO_VALUE_FAIL_FLAG);
+    
+    _SIM_Base.URCRegister("+CGGETV:", [](String urcText) {
+        _SIM_Base.URCDeregister("+CGGETV:");
+
+        int gpio = 0;
+        if (sscanf(urcText.c_str(), "+CGGETV: %d,%d", &gpio, &_gpio_value) != 2) {
+            GSM_LOG_E("+CGGETV: Respont format error");
+            xEventGroupSetBits(_sim_general_flags, SIM_GET_GPIO_VALUE_FAIL_FLAG);
+            return;
+        }
+
+        if (gpio != _gpio_focus) {
+            GSM_LOG_E("GPIO focus and GPIO value return is diff, Focus %d but got %d", _gpio_focus, gpio);
+            xEventGroupSetBits(_sim_general_flags, SIM_GET_GPIO_VALUE_FAIL_FLAG);
+            return;
+        }
+
+        xEventGroupSetBits(_sim_general_flags, SIM_GET_GPIO_VALUE_SUCCESS_FLAG);
+    });
+
+    if (!_SIM_Base.sendCommandFindOK("AT+CGGETV=" + String(pin), 300)) {
+      GSM_LOG_I("Get GPIO value error timeout");
+      return 0;
+    }
+
+    EventBits_t flags;
+    flags = xEventGroupWaitBits(_sim_general_flags, SIM_GET_GPIO_VALUE_SUCCESS_FLAG | SIM_GET_GPIO_VALUE_FAIL_FLAG, pdTRUE, pdFALSE, 300 / portTICK_PERIOD_MS);
+    if (flags & SIM_GET_GPIO_VALUE_SUCCESS_FLAG) {
+        GSM_LOG_I("GPIO %d value is %d", pin, _gpio_value);
+        return _gpio_value;
+    } else if (flags & SIM_GET_GPIO_VALUE_FAIL_FLAG) {
+        GSM_LOG_E("Get GPIO value error");
+        return 0;
+    } else {
+        GSM_LOG_E("Send GPIO value timeout");
+        return 0;
+    }
+
+    return 0;
 }
 
 SIM76XX GSM(14, 13, 12); // Rx, Tx, PWR

@@ -13,6 +13,8 @@ class SIM76XX {
         int _getPowerMode();
         int _setPowerMode(int mode);
 
+        bool checkGPIOSupport(int pin) ;
+
     public:
         SIM76XX(int rx_pin, int tx_pin, int power_pin) ;
 
@@ -31,7 +33,11 @@ class SIM76XX {
         String getIMEI() ;
         String getIMSI() ;
 
-
+        // GPIO
+        bool pinMode(int pin, int mode) ;
+        bool digitalWrite(int pin, int value) ;
+        int digitalRead(int pin) ;
+        
 };
 
 extern SIM76XX GSM;
