@@ -364,14 +364,15 @@ int GSMClient::available() {
 
     if (data_in_buffer_length > 0) {
         check_socket_id = this->sock_id;
-
+        
+        xEventGroupClearBits(_gsm_client_flags, GSM_CLIENT_RECEIVE_DATA_SUCCESS_FLAG | GSM_CLIENT_RECEIVE_DATA_FAIL_FLAG);
         _SIM_Base.URCRegister("+CIPRXGET: 2", [](String urcText) {
             _SIM_Base.URCDeregister("+CIPRXGET: 2");
             
             int socket_id = -1, real_data_can_read = 0;
             if (sscanf(urcText.c_str(), "+CIPRXGET: 2,%d,%d,%*d", &socket_id, &real_data_can_read) != 2) {
                 GSM_LOG_E("+CIPRXGET: 2: Respont format error");
-                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_RECEIVE_DATA_SIZE_FAIL_FLAG);
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_RECEIVE_DATA_FAIL_FLAG);
                 return;
             }
                 
