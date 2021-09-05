@@ -26,6 +26,7 @@ AIS 4G Board บอร์ดเชื่อมต่ออินเตอร์�
    * [GSMClient.h](#include-gsmclienth)
    * [GSMClientSecure.h](#include-gsmclientsecureh)
    * [GPS.h](#include-gpsh)
+   * [Storage.h]()
    * [SHT40.h](#include-sht40h)
    * [RS485.h](#include-rs485h)
    * [AzureIoTHub.h](#include-azureiothubh)
@@ -186,6 +187,15 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
  * `GPS.standby()` ปิดใช้ GNSS
  * `GPS.wakeup()` เปิดใช้งาน GNSS
 
+### `#include <Storage.h>`
+
+ใช้อ่าน-เขียนไฟล์ใน SIM7600 และใน MicroSD Card
+
+  * `Storage.fileWrite()` ใช้เขียนไฟล์
+  * `Storage.fileRead()` ใช้อ่านไฟล์
+
+**remark:** มี 2 ไดร์ให้สามารถอ่านเขียนไฟล์ได้ คือ `C:` เป็นพื้นที่เก็บข้อมูลภายใน SIM7600 และ `D:` เป็นพื้นที่ใน MicroSD Card
+
 ### `#include <SHT40.h>`
 
 ใช้อ่านค่าเซ็นเซอร์วัดอุณหภูมิและความชื้นบนบอร์ด AIS 4G Board
@@ -204,7 +214,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
  * `RS485.endTransmission()` คำสั่งจบการส่งข้อมูลผ่าน RS485 (คืนบัส RS485 ให้อุปกรณ์อื่นใช้บัสต่อ)
  * `RS485.receive()` สั่งเข้าโหมดรับข้อมูล
  * `RS485.noReceive()` สั่งออกจากโหมดรับข้อมูล (เข้าโหมดส่งข้อมูล)
- * `RS485.coilRead() ` ส่งคำสั่ง Coil Read (Function Code 1) อ่านค่าหน้าสัมผัสจากอุปกรณ์ MODBUS
+ * `RS485.coilRead()` ส่งคำสั่ง Coil Read (Function Code 1) อ่านค่าหน้าสัมผัสจากอุปกรณ์ MODBUS
  * `RS485.discreteInputRead()` ส่งคำสั่ง Read Discrete Inputs (Function Code 2) อ่านค่าหน้าสัมผัสจากอุปกรณ์ MODBUS
  * `RS485.holdingRegisterRead()` ส่งคำสั่ง Read Holding Registers (Function Code 3) อ่านค่าจาก Holding Register ในอุปกรณ์ MODBUS
  * `RS485.inputRegisterRead()` ส่งคำสั่ง Read Input Registers (Function Code 4) อ่านค่าจาก Input Register ในอุปกรณ์ MODBUS
@@ -247,29 +257,31 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 โค้ดโปรแกรมตัวอย่างอยู่ในโฟลเดอร์ `examples` แยกตามหมวดหมู่ ดังนี้
 
  * `GPS`
-   * [Location](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GPS/Location/Location.ino) - อ่านพิกัดจาก GNSS แสดงผลบน Serial Monitor
-   * [UnixTime](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GPS/UnixTime/UnixTime.ino) - อ่านค่าเวลา่ Unix (Timestamp) แสดงผลบน Serial Monitor
-   * [LocalTime](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GPS/LocalTime/LocalTime.ino) - อ่านค่าเวลาประเทศไทย แสดงผลบน Serial Monitor
+   * [Location](examples/GPS/Location/Location.ino) - อ่านพิกัดจาก GNSS แสดงผลบน Serial Monitor
+   * [UnixTime](examples/GPS/UnixTime/UnixTime.ino) - อ่านค่าเวลา่ Unix (Timestamp) แสดงผลบน Serial Monitor
+   * [LocalTime](examples/GPS/LocalTime/LocalTime.ino) - อ่านค่าเวลาประเทศไทย แสดงผลบน Serial Monitor
+ * `Storage`
+   * [File_Read_Write](examples/Storage/File_Read_Write/File_Read_Write.ino) - อ่าน-เขียนไฟล์บน SIM7600
  * `GSM`
-   * [Read_IMEI](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/Read_IMEI/Read_IMEI.ino) - อ่านหมายเลข IMEI แสดงผลบน Serial Monitor
-   * [Read_IMSI](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/Read_IMSI/Read_IMSI.ino) - อ่านหมายเลข IMSI แสดงผลบน Serial Monitor
-   * [LowPowerMode](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/LowPowerMode/LowPowerMode.ino) - ตัวอย่างการสั่งให้ SIM7600 เข้าโหมดประหยัดพลังงาน
-   * [digitalWrite_Sx_pin](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/digitalWrite_Sx_pin/digitalWrite_Sx_pin.ino) สั่งให้สถานะลอจิกขา S3 เป็น HIGH/LOW ทุก ๆ 500 วินาที (โปรแกรมไฟกระพริบ)
-   * [digitalRead_Sx_pin](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/GSM/digitalRead_Sx_pin/digitalRead_Sx_pin.ino) อ่านสถานะลอจิกขา S77 แสดงผลบน Serial Monitor
+   * [Read_IMEI](examples/GSM/Read_IMEI/Read_IMEI.ino) - อ่านหมายเลข IMEI แสดงผลบน Serial Monitor
+   * [Read_IMSI](examples/GSM/Read_IMSI/Read_IMSI.ino) - อ่านหมายเลข IMSI แสดงผลบน Serial Monitor
+   * [LowPowerMode](examples/GSM/LowPowerMode/LowPowerMode.ino) - ตัวอย่างการสั่งให้ SIM7600 เข้าโหมดประหยัดพลังงาน
+   * [digitalWrite_Sx_pin](examples/GSM/digitalWrite_Sx_pin/digitalWrite_Sx_pin.ino) สั่งให้สถานะลอจิกขา S3 เป็น HIGH/LOW ทุก ๆ 500 วินาที (โปรแกรมไฟกระพริบ)
+   * [digitalRead_Sx_pin](examples/GSM/digitalRead_Sx_pin/digitalRead_Sx_pin.ino) อ่านสถานะลอจิกขา S77 แสดงผลบน Serial Monitor
  * `Network`
-   * [Ping](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Ping/Ping.ino) - Ping เว็บ www.ais.co.th
-   * [Read_Device_IP](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Device_IP/Read_Device_IP.ino) - อ่านหมายเลข IP แสดงผลบน Serial Monitor
-   * [Read_Operator_Name](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Operator_Name/Read_Operator_Name.ino) - อ่านชื่อเครือข่ายที่เชื่อมต่ออยู่
-   * [Read_Signal_Strength](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Network/Read_Signal_Strength/Read_Signal_Strength.ino) - อ่านความแรงสัญญาณ 4G
+   * [Ping](examples/Network/Ping/Ping.ino) - Ping เว็บ www.ais.co.th
+   * [Read_Device_IP](examples/Network/Read_Device_IP/Read_Device_IP.ino) - อ่านหมายเลข IP แสดงผลบน Serial Monitor
+   * [Read_Operator_Name](examples/Network/Read_Operator_Name/Read_Operator_Name.ino) - อ่านชื่อเครือข่ายที่เชื่อมต่ออยู่
+   * [Read_Signal_Strength](examples/Network/Read_Signal_Strength/Read_Signal_Strength.ino) - อ่านความแรงสัญญาณ 4G
  * `TCP`
-   * [GSMClient](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/TCP/GSMClient/GSMClient.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP
-   * [GSMClientSecure](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/TCP/GSMClientSecure/GSMClientSecure.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP/TLS
+   * [GSMClient](examples/TCP/GSMClient/GSMClient.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP
+   * [GSMClientSecure](examples/TCP/GSMClientSecure/GSMClientSecure.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน TCP/TLS
  * `MQTT` - ตัวอย่างในโฟลเดอร์นี้ดัดแปลงมาจาก [PubSubClient](https://github.com/knolleary/pubsubclient) ศึกษารายละเอียดเพิ่มเติมได้ในลิ้งต้นฉบับ
-   * [mqtt_basic](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/MQTT/mqtt_basic/mqtt_basic.ino) - ตัวอย่างการเชื่อมต่อ MQTT อย่างง่าย ส่งข้อมูลเข้า Topic `outTopic` และ Subscribe Topic `inTopic`
-   * [mqtt_auth](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/MQTT/mqtt_auth/mqtt_auth.ino) - ตัวอย่างการเชื่อมต่อ MQTT แบบต้องใช้ Username และ Password
-   * [mqtt_publish_in_callback](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/MQTT/mqtt_publish_in_callback/mqtt_publish_in_callback.ino) - ตัวอย่างการส่งข้อมูลเข้า Topic `outTopic` ในฟังก์ชั่น Callback
+   * [mqtt_basic](examples/MQTT/mqtt_basic/mqtt_basic.ino) - ตัวอย่างการเชื่อมต่อ MQTT อย่างง่าย ส่งข้อมูลเข้า Topic `outTopic` และ Subscribe Topic `inTopic`
+   * [mqtt_auth](examples/MQTT/mqtt_auth/mqtt_auth.ino) - ตัวอย่างการเชื่อมต่อ MQTT แบบต้องใช้ Username และ Password
+   * [mqtt_publish_in_callback](examples/MQTT/mqtt_publish_in_callback/mqtt_publish_in_callback.ino) - ตัวอย่างการส่งข้อมูลเข้า Topic `outTopic` ในฟังก์ชั่น Callback
  * `Sensor`
-   * [SHT40_Read](https://github.com/maxpromer/AIS_IoT_4G/tree/main/examples/Sensor/SHT40_Read/SHT40_Read.ino) - อ่านอุณหภูมิและความชื้นจากเซ็นเซอร์บนบอร์ด แสดงผลบน Serial Monitor
+   * [SHT40_Read](examples/Sensor/SHT40_Read/SHT40_Read.ino) - อ่านอุณหภูมิและความชื้นจากเซ็นเซอร์บนบอร์ด แสดงผลบน Serial Monitor
  * `RS485`
    * [RS485_Slave_Echo](https://github.com/gravitech-engineer/AIS_IoT_4G/tree/main/examples/RS485/RS485_Slave_Echo/RS485_Slave_Echo.ino) - ตัวอย่างการรับข้อมูลจาก RS485 Master แล้วตอบข้อมูลได้ที่รับมากลับไป
    * [SDM120CT_Read](https://github.com/gravitech-engineer/AIS_IoT_4G/tree/main/examples/RS485/SDM120CT_Read/SDM120CT_Read.ino) - ตัวอย่างการอ่านค่าแรงดันไฟฟ้า กระแสไฟฟ้า พลังงานไฟฟ้า จาก Power Meter รุ่น SDM120CT ด้วย RS485 ผ่านโปรโตคอล MODBUS RTU
