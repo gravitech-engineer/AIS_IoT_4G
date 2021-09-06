@@ -18,8 +18,17 @@ GSMStorage::GSMStorage() {
     }
 }
 
-String *_content_to_write = NULL;
+bool GSMStorage::selectCurrentDirectory(String path) {
+    if (!_SIM_Base.sendCommandFindOK("AT+FSCD=" + path)) {
+        GSM_LOG_E("Select current directory fail");
+        return false;
+    }
+    
+    _current_drive = path.charAt(0);
+    return true;
+}
 
+String *_content_to_write = NULL;
 bool GSMStorage::fileWrite(String path, String content) {
     xEventGroupClearBits(_gsm_storage_flags, GSM_FILE_WRITE_SUCCESS_FLAG | GSM_FILE_WRITE_FAIL_FLAG);
     _SIM_Base.URCRegister(">", [](String urcText) {
@@ -84,6 +93,12 @@ bool GSMStorage::fileWrite(String path, String content) {
 
 String *_read_buffer = NULL;
 String GSMStorage::fileRead(String path) {
+    if (path.charAt(0) != _current_drive) {
+        if (!this->selectCurrentDirectory(path.substring(0, 2))) {
+            return String();
+        }
+    }
+
     xEventGroupClearBits(_gsm_storage_flags, GSM_FILE_READ_SUCCESS_FLAG | GSM_FILE_READ_FAIL_FLAG);
     _SIM_Base.URCRegister("+CFTRANTX: DATA", [](String urcText) {
         _SIM_Base.URCDeregister("+CFTRANTX: DATA");
@@ -137,6 +152,53 @@ String GSMStorage::fileRead(String path) {
     }
 
     return read_data;    
+}
+
+bool GSMStorage::mkdir(String path) {
+    if (path.endsWith("/")) {
+        path = path.substring(0, path.length() - 1);
+    }
+
+    if (!this->selectCurrentDirectory(path.substring(0, path.lastIndexOf("/")))) {
+        return false;
+    }
+
+    if (!_SIM_Base.sendCommandFindOK("AT+FSMKDIR=" + path.substring(path.lastIndexOf("/") + 1))) {
+        GSM_LOG_E("Make new directory in current directory fail");
+        return false;
+    }
+
+    return true;
+}
+
+bool GSMStorage::rmdir(String path) {
+    if (path.endsWith("/")) {
+        path = path.substring(0, path.length() - 1);
+    }
+
+    if (!this->selectCurrentDirectory(path.substring(0, path.lastIndexOf("/")))) {
+        return false;
+    }
+
+    if (!_SIM_Base.sendCommandFindOK("AT+FSRMDIR=" + path.substring(path.lastIndexOf("/") + 1))) {
+        GSM_LOG_E("Delete directory in current directory fail");
+        return false;
+    }
+
+    return true;
+}
+
+bool GSMStorage::remove(String path) {
+    if (!this->selectCurrentDirectory(path.substring(0, path.lastIndexOf("/")))) {
+        return false;
+    }
+
+    if (!_SIM_Base.sendCommandFindOK("AT+FSDEL=" + path.substring(path.lastIndexOf("/") + 1))) {
+        GSM_LOG_E("Delete directory in current directory fail");
+        return false;
+    }
+
+    return true;
 }
 
 GSMStorage Storage;
