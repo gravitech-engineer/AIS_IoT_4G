@@ -5,19 +5,26 @@
 #include "Udp.h"
 
 #define UDP_WRITE_BUFFER 256
+#define UDP_READ_BUFFER 256
 
 class GSMUdp : public UDP {
     private:
-        char *write_host = NULL;
+        int8_t sock_id = -1;
+        
+        String write_host;
         uint16_t write_port = 0;
         uint8_t *write_buff = NULL;
         size_t write_len = 0;
 
-    public:
-        GSMUdp();
+        IPAddress remote_ip;
+        uint16_t remote_port = 0;
 
-        uint8_t begin(uint16_t) ;
-        uint8_t beginMulticast(IPAddress, uint16_t) ;
+    public:
+        GSMUdp() ;
+        ~GSMUdp() ; 
+
+        uint8_t begin(uint16_t local_port) ;
+        uint8_t beginMulticast(IPAddress ip, uint16_t local_port) ;
 
         int beginPacket(IPAddress ip, uint16_t port) {
             return beginPacket(ip.toString().c_str(), port);
@@ -35,6 +42,8 @@ class GSMUdp : public UDP {
         int read(char* buffer, size_t len) ;
         int peek() ;
         void flush() ;
+
+        void stop() ;
 
         IPAddress remoteIP() ;
         uint16_t remotePort() ;
