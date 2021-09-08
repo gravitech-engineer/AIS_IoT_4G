@@ -15,6 +15,8 @@ EventGroupHandle_t _sim_general_flags = NULL;
 #define SIM_PB_DONE_FLAG                         (1 << 9)
 #define SIM_GET_GPIO_VALUE_FAIL_FLAG             (1 << 10)
 #define SIM_GET_GPIO_VALUE_SUCCESS_FLAG          (1 << 11)
+#define SIM_GET_ICCID_FAIL_FLAG                  (1 << 12)
+#define SIM_GET_ICCID_SUCCESS_FLAG               (1 << 13)
 
 SIM76XX::SIM76XX(int rx_pin, int tx_pin, int pwr_pin) {
     this->rx_pin = rx_pin;
@@ -332,6 +334,44 @@ String SIM76XX::getIMSI() {
     GSM_LOG_I("OK !, %s", imsi.c_str());
 
     return imsi;
+}
+
+String _iccid;
+String SIM76XX::getICCID() {
+    xEventGroupClearBits(_sim_general_flags, SIM_GET_ICCID_SUCCESS_FLAG | SIM_GET_ICCID_FAIL_FLAG);
+    
+    _SIM_Base.URCRegister("+ICCID:", [](String urcText) {
+        _SIM_Base.URCDeregister("+ICCID:");
+
+        char *iccid_buffer = (char*)malloc(40);
+        if (sscanf(urcText.c_str(), "+ICCID: %38s", iccid_buffer) != 1) {
+            GSM_LOG_E("+ICCID: Respont format error");
+            xEventGroupSetBits(_sim_general_flags, SIM_GET_ICCID_FAIL_FLAG);
+            return;
+        }
+
+        _iccid = String(iccid_buffer);
+        xEventGroupSetBits(_sim_general_flags, SIM_GET_ICCID_SUCCESS_FLAG);
+    });
+
+    if (!_SIM_Base.sendCommandFindOK("AT+CICCID", 300)) {
+      GSM_LOG_I("Get ICCID error");
+      return String();
+    }
+
+    EventBits_t flags;
+    flags = xEventGroupWaitBits(_sim_general_flags, SIM_GET_ICCID_SUCCESS_FLAG | SIM_GET_ICCID_FAIL_FLAG, pdTRUE, pdFALSE, 300 / portTICK_PERIOD_MS);
+    if (flags & SIM_GET_ICCID_SUCCESS_FLAG) {
+        GSM_LOG_I("ICCID is %s", _iccid.c_str());
+    } else if (flags & SIM_GET_ICCID_FAIL_FLAG) {
+        GSM_LOG_E("Get ICCID error");
+        return String();
+    } else {
+        GSM_LOG_E("Send get ICCID timeout");
+        return String();
+    }
+
+    return _iccid;
 }
 
 bool SIM76XX::checkGPIOSupport(int pin) {
