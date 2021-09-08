@@ -94,8 +94,13 @@ bool AzureIoTCentral::connect() {
         dpsGotInfo = true;
     }
 
-    return AzureIoTHub::connect();
-}
+    
+    bool connect = AzureIoTHub::connect();
+    if (!connect) {
+        dpsGotInfo = false;
+    }
+
+    return connect;
 
 void mqttSubscribeCallbackDPS(char* topic, byte* payload, unsigned int length) {
     Serial.println("mqttSubscribeCallbackDPS");
