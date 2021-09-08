@@ -265,6 +265,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
  * `GSM`
    * [Read_IMEI](examples/GSM/Read_IMEI/Read_IMEI.ino) - อ่านหมายเลข IMEI แสดงผลบน Serial Monitor
    * [Read_IMSI](examples/GSM/Read_IMSI/Read_IMSI.ino) - อ่านหมายเลข IMSI แสดงผลบน Serial Monitor
+   * [Read_ICCID](examples/GSM/Read_ICCID/Read_ICCID.ino) - อ่านหมายเลข ICCID ของ eSIM แสดงผลบน Serial Monitor
    * [LowPowerMode](examples/GSM/LowPowerMode/LowPowerMode.ino) - ตัวอย่างการสั่งให้ SIM7600 เข้าโหมดประหยัดพลังงาน
    * [digitalWrite_Sx_pin](examples/GSM/digitalWrite_Sx_pin/digitalWrite_Sx_pin.ino) สั่งให้สถานะลอจิกขา S3 เป็น HIGH/LOW ทุก ๆ 500 วินาที (โปรแกรมไฟกระพริบ)
    * [digitalRead_Sx_pin](examples/GSM/digitalRead_Sx_pin/digitalRead_Sx_pin.ino) อ่านสถานะลอจิกขา S77 แสดงผลบน Serial Monitor
