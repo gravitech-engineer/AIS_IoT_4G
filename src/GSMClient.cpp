@@ -18,8 +18,8 @@ EventGroupHandle_t _gsm_client_flags = NULL;
 #define GSM_CLIENT_RECEIVE_DATA_SUCCESS_FLAG   (1 << 10)
 #define GSM_CLIENT_RECEIVE_DATA_FAIL_FLAG   (1 << 11)
 
-bool setupURC = false;
-int check_socket_id = 0;
+static bool setupURC = false;
+static int check_socket_id = 0;
 
 GSMClient::GSMClient() {
     if (!_gsm_client_flags) {
@@ -179,9 +179,9 @@ size_t GSMClient::write(uint8_t c) {
     return this->write((const uint8_t *)&c, 1);
 }
 
-int check_send_length = 0;
-uint8_t *_data_send_buf = NULL;
-uint16_t _data_send_size = 0;
+static int check_send_length = 0;
+static uint8_t *_data_send_buf = NULL;
+static uint16_t _data_send_size = 0;
 
 size_t GSMClient::write(const uint8_t *buf, size_t size) {
     if (this->sock_id == -1) {
@@ -302,7 +302,7 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
     return size;
 }
 
-int data_in_buffer_length = 0;
+static int data_in_buffer_length = 0;
 
 int GSMClient::available() {
     if (this->sock_id == -1) {
@@ -440,9 +440,9 @@ int GSMClient::read() {
     char c;
     if (this->read((uint8_t*)&c, 1) >= 0) {
         return c;
-    } else {
-        return -1;
     }
+    
+    return -1;
 }
 
 int GSMClient::read(uint8_t *buf, size_t size) {
@@ -477,6 +477,10 @@ int GSMClient::read(uint8_t *buf, size_t size) {
 
 int GSMClient::peek() {
     if (this->sock_id == -1) {
+        return -1;
+    }
+
+    if (!ClientSocketInfo[this->sock_id].rxQueue) {
         return -1;
     }
 
