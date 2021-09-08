@@ -1,12 +1,11 @@
 #include "AzureIoTCentral.h"
+#include "GSM_LOG.h"
 
 void mqttSubscribeCallbackDPS(char* topic, byte* payload, unsigned int length) ;
 
-#if defined(ESP32) || defined(ESP8266)
 AzureIoTCentral::AzureIoTCentral() : AzureIoTHub() {
     AzureIoTHub::modelId = "";
 }
-#endif
 
 AzureIoTCentral::AzureIoTCentral(Client &c) : AzureIoTHub(c) {
     AzureIoTHub::modelId = "";
@@ -38,20 +37,20 @@ bool AzureIoTCentral::connect() {
         // MQTT Password
         mqttPassword = AzureIoTHub::generateSasToken(resourceUri);
 
-        Serial.println("MQTT Connection (DPS)");
-        Serial.println(" MQTT Host: global.azure-devices-provisioning.net");
-        Serial.println(" MQTT ClientId: " + this->deviceId);
-        Serial.println(" MQTT Username: " + mqttUsername);
-        Serial.println(" MQTT Password: " + mqttPassword);
+        GSM_LOG_I("MQTT Connection (DPS)");
+        GSM_LOG_I(" MQTT Host: global.azure-devices-provisioning.net");
+        GSM_LOG_I(" MQTT ClientId: %s", this->deviceId.c_str());
+        GSM_LOG_I(" MQTT Username: %s", mqttUsername.c_str());
+        GSM_LOG_I(" MQTT Password: %s", mqttPassword.c_str());
 
         AzureIoTHub::mqtt->setServer("global.azure-devices-provisioning.net", 8883);
         AzureIoTHub::mqtt->setCallback(mqttSubscribeCallbackDPS);
-        Serial.print("(DPS) MQTT Connect... ");
+        GSM_LOG_I("(DPS) MQTT Connect... ");
         if (!AzureIoTHub::mqtt->connect(this->deviceId.c_str(), mqttUsername.c_str(), mqttPassword.c_str())) {
-            Serial.println("Fail!");
+            GSM_LOG_E("(DPS) MQTT Connect Fail!");
             return false;
         }
-        Serial.println("Connected");
+        GSM_LOG_I("Connected");
 
         // Ref: https://docs.microsoft.com/th-th/azure/iot-dps/iot-dps-mqtt-support
         AzureIoTHub::mqtt->subscribe("$dps/registrations/res/#");
@@ -84,9 +83,9 @@ bool AzureIoTCentral::connect() {
 
         AzureIoTHub::mqtt->disconnect();
 
-        Serial.println("Device provisioned:");
-        Serial.println(" Hub host = " + dpsRegistrationsAssignedHub);
-        Serial.println(" Device id = " + dpsRegistrationsDeviceId);
+        GSM_LOG_I("Device provisioned:");
+        GSM_LOG_I(" Hub host = %s", dpsRegistrationsAssignedHub.c_str());
+        GSM_LOG_I(" Device id = %s", dpsRegistrationsDeviceId.c_str());
 
         AzureIoTHub::host = dpsRegistrationsAssignedHub;
         AzureIoTHub::deviceId = dpsRegistrationsDeviceId;
@@ -104,31 +103,29 @@ bool AzureIoTCentral::connect() {
 }
 
 void mqttSubscribeCallbackDPS(char* topic, byte* payload, unsigned int length) {
-    Serial.println("mqttSubscribeCallbackDPS");
-    Serial.println("  Topic: " + String(topic));
-    Serial.print("  Payload: ");
-    Serial.write(payload, length);
-    Serial.println();
+    GSM_LOG_I("mqttSubscribeCallbackDPS");
+    GSM_LOG_I("  Topic: %s", topic);
+    GSM_LOG_I("  Payload: %.*s", length, payload);
 
     if (String(topic).indexOf("$dps/registrations/res/") >= 0) {
-        Serial.println("Found topic");
+        GSM_LOG_I("Found topic");
         int responsesCode = 0;
         sscanf(topic, "$dps/registrations/res/%d/", &responsesCode);
-        Serial.println("Code: " + String(responsesCode));
+        GSM_LOG_I("Code: " + String(responsesCode));
         if (responsesCode == 202) { // 202 Accepted
             dpsRegistrationsRetryAfter = -1;
             sscanf(topic, "$dps/registrations/res/202/?$rid=%*d&retry-after=%d", &dpsRegistrationsRetryAfter);
             if (dpsRegistrationsRetryAfter >= 0) {
-                Serial.println("Set state 1");
+                GSM_LOG_I("Set state 1");
                 dpsRegistrationsState = 1;
             } else {
-                Serial.println("Error retry-after not found");
+                GSM_LOG_I("Error retry-after not found");
             }
         } else if (responsesCode == 200) {
-            Serial.println("Set state 3");
+            GSM_LOG_I("Set state 3");
             dpsRegistrationsState = 3;
         } else {
-            Serial.println("Error unknow responses code");
+            GSM_LOG_I("Error unknow responses code");
         }
         
         // JSON parser payload
@@ -140,7 +137,7 @@ void mqttSubscribeCallbackDPS(char* topic, byte* payload, unsigned int length) {
         DeserializationError error = deserializeJson(doc, payload_str);
         if (!error) {
             dpsRegistrationsOperationId = String(doc["operationId"].as<const char*>());
-            Serial.println("dpsRegistrationsOperationId: " + dpsRegistrationsOperationId);
+            GSM_LOG_I("dpsRegistrationsOperationId: %d", dpsRegistrationsOperationId);
             if (!doc["registrationState"]["assignedHub"].isNull()) {
                 dpsRegistrationsAssignedHub = String(doc["registrationState"]["assignedHub"].as<const char*>());
             }
@@ -148,11 +145,10 @@ void mqttSubscribeCallbackDPS(char* topic, byte* payload, unsigned int length) {
                 dpsRegistrationsDeviceId = String(doc["registrationState"]["deviceId"].as<const char*>());
             }
         } else {
-            Serial.print(F("deserializeJson() failed: "));
-            Serial.println(error.f_str());
+            GSM_LOG_E("deserializeJson() failed: %s", String(error.f_str()).c_str());
         }
     } else {
-        Serial.println("Error unknow topic");
+        GSM_LOG_E("Error unknow topic");
     }
 }
 
