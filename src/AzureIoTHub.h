@@ -1,11 +1,6 @@
 #ifndef __AZURE_IOT_HUB_H__
 #define __AZURE_IOT_HUB_H__
 
-// Force use AIS 4G Dev Kit
-#ifndef AIS_4G_DEV_KIT
-#define AIS_4G_DEV_KIT
-#endif
-
 #include "Arduino.h"
 #include "ArduinoJson-v6.18.3.h"
 #include "PubSubClient.h"
@@ -21,6 +16,7 @@
 #define MQTT_PACKET_SIZE     1024
 
 typedef std::function<void(String payload)> CommandHandlerFunction;
+typedef std::function<time_t()> GetTimeHandlerFunction;
 
 class AzureIoTHub {
     protected:
@@ -33,16 +29,15 @@ class AzureIoTHub {
         // Option
         String modelId = "";
 
-        uint32_t getTime();
+        GetTimeHandlerFunction getTime = NULL;
         String generateSasToken(String resourceUri) ;
 
     public:
-#if defined(ESP32) || defined(ESP8266)
         AzureIoTHub();
-#endif
         AzureIoTHub(Client &c);
-
+        
         bool configs(String host, String deviceId, String symmetricKey) ;
+        void setGetTime(GetTimeHandlerFunction fn) ;
         bool connect();
         bool isConnected();
 
