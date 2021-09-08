@@ -241,12 +241,12 @@ long RS485Class::inputRegisterRead(int id, int address) {
     while (this->uart->available()) (void)this->uart->read();
 
     uint8_t buff_send[8] = {
-        (uint8_t)(id & 0xFF),           // Devices Address
+        (uint8_t)(id & 0xFF),           // Devices ID
         0x04,                           // Function code
         (uint8_t)(address >> 8),        // Start Address HIGH
         (uint8_t)(address & 0xFF),      // Start Address LOW
-        0x00,                           // Quantity of coils HIGH
-        0x01,                           // Quantity of coils LOW
+        0x00,                           // Quantity HIGH
+        0x01,                           // Quantity LOW
         0,                              // CRC LOW
         0                               // CRC HIGH
     };
@@ -370,6 +370,72 @@ float RS485Class::inputRegisterReadFloat(int id, int address) {
     }
 
     return value;
+}
+
+int RS485Class::inputRegisterReadU16Array(int id, int address, uint16_t *register_value, uint16_t quantity) {
+    while (this->uart->available()) (void)this->uart->read();
+
+    uint8_t buff_send[8] = {
+        (uint8_t)(id & 0xFF),           // Devices Address
+        0x04,                           // Function code
+        (uint8_t)(address >> 8),        // Start Address HIGH
+        (uint8_t)(address & 0xFF),      // Start Address LOW
+        (uint8_t)(quantity >> 8),       // Quantity of coils HIGH
+        (uint8_t)(quantity & 0xFF),     // Quantity of coils LOW
+        0,                              // CRC LOW
+        0                               // CRC HIGH
+    };
+
+    uint16_t crc = CRC16(&buff_send[0], 6);
+    buff_send[6] = crc & 0xFF;
+    buff_send[7] = (crc >> 8) & 0xFF;
+
+    this->beginTransmission();
+    this->uart->write(buff_send, 8);
+    this->endTransmission();
+
+    delay(1); // wait noisy
+    while (this->uart->available()) (void)this->uart->read(); // Skip noisy
+
+    uint8_t buff_reply[9];
+    if (this->uart->readBytes(&buff_reply[0], 2) != 2) { // Read first byte
+        Serial.println("Read DeviceId & Function Code timeout");
+        return -1; // timeout
+    }
+
+    // Serial.printf("Device ID: %02x, Function Code: %d\n", buff_reply[0], buff_reply[1]);
+
+    if ((id != 0) && (buff_reply[0] != id)) {
+        Serial.println("reply device id invalid");
+        return -1; // reply device id invalid
+    }
+
+    if (buff_reply[1] != 0x04) { // Recheck function code
+        Serial.println("Function code is wrong");
+        return -1; // Function code is wrong
+    }
+
+    if (this->uart->readBytes(&buff_reply[2], 1 + (quantity * 2) + 2) != (1 + (quantity * 2) + 2)) { // Read other byte
+        Serial.println("Read other byte timeout");
+        return -1; // timeout
+    }
+
+    if (buff_reply[2] != (quantity * 2)) { // Byte Count = Quantity * 2
+        Serial.println("Byte Count invalid");
+        return -1; // Byte Count invalid
+    }
+
+    for (uint16_t i=0;i<quantity;i++) {
+        register_value[i] = ((uint16_t)buff_reply[3 + (i * 2) + 0] << 8) | buff_reply[3 + (i * 2) + 1];
+    }
+
+    uint16_t crc_recheck = ((uint16_t)buff_reply[1 + (quantity * 2) + 1] << 8) | buff_reply[2 + (quantity * 2) + 0];
+    if (crc_recheck != CRC16(buff_reply, 7)) { // Check CRC
+        Serial.println("CRC invalid");
+        return -1; // CRC invalid
+    }
+
+    return quantity;
 }
 
 int RS485Class::coilWrite(int address, uint8_t value) {

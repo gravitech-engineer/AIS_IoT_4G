@@ -48,6 +48,7 @@ class RS485Class : public Stream {
 
         float inputRegisterReadFloat(int address) ;
         float inputRegisterReadFloat(int id, int address) ;
+        int inputRegisterReadU16Array(int id, int address, uint16_t *register_value, uint16_t quantity) ;
 
         int holdingRegisterWrite(int address, uint16_t *value, size_t len) ;
         int holdingRegisterWrite(int id, int address, uint16_t *value, size_t len) ;
