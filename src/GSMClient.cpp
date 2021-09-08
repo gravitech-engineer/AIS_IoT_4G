@@ -92,12 +92,15 @@ int GSMClient::connect(const char *host, uint16_t port, int32_t timeout) {
         if (!ClientSocketInfo[i].itUsing) {
             ClientSocketInfo[i].itUsing = true;
             this->sock_id = i;
+            GSM_LOG_I("Socket %d free !", i);
             break;
+        } else {
+            GSM_LOG_I("Socket %d using", i);
         }
     }
 
     if (this->sock_id == -1) {
-        GSM_LOG_E("Socket not available");
+        GSM_LOG_E("Socket not available in connect");
         return -5;
     }
 
@@ -182,7 +185,7 @@ uint16_t _data_send_size = 0;
 
 size_t GSMClient::write(const uint8_t *buf, size_t size) {
     if (this->sock_id == -1) {
-        GSM_LOG_E("Socket not available");
+        GSM_LOG_E("Socket not available in write");
         return 0;
     }
 
@@ -303,7 +306,7 @@ int data_in_buffer_length = 0;
 
 int GSMClient::available() {
     if (this->sock_id == -1) {
-        GSM_LOG_E("Socket not available");
+        GSM_LOG_E("Socket not available in available");
         return 0;
     }
 
@@ -499,6 +502,11 @@ void GSMClient::flush() { // Not support
 }
 
 uint8_t GSMClient::connected() {
+    if (this->sock_id == -1) {
+        GSM_LOG_E("Socket not available in connected");
+        return 0;
+    }
+
     return ClientSocketInfo[this->sock_id].connected || (this->available() > 0);
 }
 
@@ -507,7 +515,7 @@ GSMClient::operator bool() {
 }
 
 void GSMClient::stop() {
-    if (this->sock_id < 0 || this->sock_id > 9) {
+    if ((this->sock_id < 0) || (this->sock_id > 9)) {
         return;
     }
 
