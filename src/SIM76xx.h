@@ -32,6 +32,7 @@ class SIM76XX {
         // Modem
         String getIMEI() ;
         String getIMSI() ;
+        String getICCID() ;
 
         // GPIO
         bool pinMode(int pin, int mode) ;

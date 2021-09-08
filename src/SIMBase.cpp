@@ -90,7 +90,9 @@ bool SIMBase::sendCommand(String cmd, uint32_t timeout) {
         return true;
     }
 
-    GSM_LOG_E("Wait command recheck %s timeout in %d ms", cmd.c_str(), timeout);
+    if (cmd != "AT") {
+        GSM_LOG_E("Wait command recheck %s timeout in %d ms", cmd.c_str(), timeout);
+    }
     return false;
 }
 
@@ -369,7 +371,7 @@ void URCProcess(String data) {
             line_after_recheck = data;
             xEventGroupSetBits(_urc_flags, URC_COMMAND_READ_ONE_LINE_FLAG);
 
-            GSM_LOG_E("Not found URC %s register", data.c_str());
+            GSM_LOG_W("Not found URC %s register", data.c_str());
         }
     }
 }
