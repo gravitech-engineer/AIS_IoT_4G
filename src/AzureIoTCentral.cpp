@@ -101,6 +101,7 @@ bool AzureIoTCentral::connect() {
     }
 
     return connect;
+}
 
 void mqttSubscribeCallbackDPS(char* topic, byte* payload, unsigned int length) {
     Serial.println("mqttSubscribeCallbackDPS");
