@@ -126,6 +126,7 @@ int GSMUdp::beginPacket(const char *host, uint16_t port) {
     if (this->write_buff) {
         free(this->write_buff);
         this->write_buff = NULL;
+        this->write_len = 0;
     }
 
     this->write_buff = (uint8_t*)malloc(UDP_WRITE_BUFFER);
@@ -225,7 +226,7 @@ int GSMUdp::endPacket() {
     _data_send_size = write_len;
 
     // AT+CIPSEND=<link_num>,<length>,<serverIP>,<serverPort>
-    if (!_SIM_Base.sendCommand("AT+CIPSEND=" + String(this->sock_id) + "," + String(write_len) + "," + write_host + "," + String(write_host))) {
+    if (!_SIM_Base.sendCommand("AT+CIPSEND=" + String(this->sock_id) + "," + String(write_len) + ",\"" + write_host + "\"," + String(write_port))) {
         GSM_LOG_E("Send req send data TCP/IP error timeout");
         return 0; // Timeout
     }
@@ -262,6 +263,7 @@ int GSMUdp::endPacket() {
 
     free(this->write_buff);
     this->write_buff = NULL;
+    this->write_len = 0;
 
     return final_write;
 }
@@ -271,7 +273,7 @@ size_t GSMUdp::write(uint8_t c) {
 }
 
 size_t GSMUdp::write(const uint8_t *buffer, size_t size) {
-    uint16_t copy_len = min(this->write_len, size);
+    uint16_t copy_len = min(UDP_WRITE_BUFFER - this->write_len, size);
     memcpy(&this->write_buff[write_len], buffer, copy_len);
     this->write_len += copy_len;
 
@@ -291,7 +293,6 @@ int GSMUdp::parsePacket() {
         return 0;
     }
 
-    size_t dataWaitRead = uxQueueMessagesWaiting(ClientSocketInfo[this->sock_id].rxQueue);
     if (uxQueueSpacesAvailable(ClientSocketInfo[this->sock_id].rxQueue) <= 0) {
         GSM_LOG_I("No spaces !");
         return 0;
