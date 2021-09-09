@@ -111,7 +111,7 @@ void mqttSubscribeCallbackDPS(char* topic, byte* payload, unsigned int length) {
         GSM_LOG_I("Found topic");
         int responsesCode = 0;
         sscanf(topic, "$dps/registrations/res/%d/", &responsesCode);
-        GSM_LOG_I("Code: " + String(responsesCode));
+        GSM_LOG_I("Code: %d", responsesCode);
         if (responsesCode == 202) { // 202 Accepted
             dpsRegistrationsRetryAfter = -1;
             sscanf(topic, "$dps/registrations/res/202/?$rid=%*d&retry-after=%d", &dpsRegistrationsRetryAfter);
@@ -137,7 +137,7 @@ void mqttSubscribeCallbackDPS(char* topic, byte* payload, unsigned int length) {
         DeserializationError error = deserializeJson(doc, payload_str);
         if (!error) {
             dpsRegistrationsOperationId = String(doc["operationId"].as<const char*>());
-            GSM_LOG_I("dpsRegistrationsOperationId: %d", dpsRegistrationsOperationId);
+            GSM_LOG_I("dpsRegistrationsOperationId: %s", dpsRegistrationsOperationId.c_str());
             if (!doc["registrationState"]["assignedHub"].isNull()) {
                 dpsRegistrationsAssignedHub = String(doc["registrationState"]["assignedHub"].as<const char*>());
             }

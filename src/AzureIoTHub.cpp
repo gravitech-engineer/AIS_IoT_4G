@@ -149,7 +149,7 @@ bool AzureIoTHub::connect() {
 
     GSM_LOG_I("MQTT Connection");
     GSM_LOG_I(" MQTT Host: %s", this->host.c_str());
-    GSM_LOG_I(" MQTT ClientId: %s", this->deviceId);
+    GSM_LOG_I(" MQTT ClientId: %s", this->deviceId.c_str());
     GSM_LOG_I(" MQTT Username: %s", mqttUsername.c_str());
     GSM_LOG_I(" MQTT Password: %s", mqttPassword.c_str());
     
