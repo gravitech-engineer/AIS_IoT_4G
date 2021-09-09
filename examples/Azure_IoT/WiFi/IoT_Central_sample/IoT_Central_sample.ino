@@ -14,6 +14,17 @@ const char* password = "your-password"; // your network password
 WiFiClientSecure client;
 AzureIoTCentral iot(client);
 
+time_t getTime() {
+  time_t now;
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Failed to obtain time");
+    return 0;
+  }
+  time(&now);
+  return now;
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -37,8 +48,10 @@ void setup() {
   Serial.print("Connected to ");
   Serial.println(ssid);
 
-  client.setCACert(AZURE_ROOT_CA);
+  configTime(0, 0, "pool.ntp.org"); // Config NTP server
 
+  client.setCACert(AZURE_ROOT_CA);
+  iot.setGetTime(getTime);
   iot.configs(
     "<ID scope>",                   // ID scope
     "<Device ID>",                  // Device ID
