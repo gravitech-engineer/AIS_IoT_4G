@@ -262,6 +262,23 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
 
         xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_SUCCESS_FLAG);
     });
+    
+    _SIM_Base.URCRegister("+CIPERROR:", [](String urcText) {
+        _SIM_Base.URCDeregister("+CIPERROR:");
+
+        int error = -1;
+        if (sscanf(urcText.c_str(), "+CIPERROR: %d", &error) != 1) {
+            GSM_LOG_E("+CIPERROR: response format error");
+            xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG);
+            return;
+        }
+        
+        if (error == 4) {
+            GSM_LOG_E("Socket %d is disconnect so can't send data", check_socket_id);
+            ClientSocketInfo[check_socket_id].connected = false;
+            xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG);
+        }
+    });
 
     _data_send_buf = (uint8_t*)buf;
     _data_send_size = size;
@@ -273,6 +290,7 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
 
     EventBits_t flags;
     flags = xEventGroupWaitBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_SUCCESS_FLAG | GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG, pdTRUE, pdFALSE, 3000 / portTICK_PERIOD_MS);
+    _SIM_Base.URCDeregister("+CIPERROR:");
     if (flags & GSM_CLIENT_SEND_DATA_TO_MODULE_SUCCESS_FLAG) {
         GSM_LOG_I("Socket %d send data to module", this->sock_id);
     } else if (flags & GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG) {
