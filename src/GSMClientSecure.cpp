@@ -106,12 +106,17 @@ int GSMClientSecure::available() {
         return 0;
     }
 
-    return gsm_data_to_read(this->sslclient);
+    int data_in_buffer = gsm_data_to_read(this->sslclient);
+    if (data_in_buffer < 0) {
+        return 0;
+    }
+
+    return data_in_buffer;
 }
 
 int GSMClientSecure::read() {
     char c;
-    if (this->read((uint8_t*)&c, 1) >= 0) {
+    if (this->read((uint8_t*)&c, 1) > 0) {
         return c;
     } else {
         return -1;
@@ -120,19 +125,19 @@ int GSMClientSecure::read() {
 
 int GSMClientSecure::read(uint8_t *buf, size_t size) {
     if (!this->sslclient) {
-        return false;
-    }
-
-    if (!this->sslclient->client) {
-        return false;
-    }
-
-    size_t in_buffer = this->available();
-    if (in_buffer == 0) {
         return -1;
     }
 
-    return gsm_get_ssl_receive(this->sslclient, buf, min(size, in_buffer));
+    if (!this->sslclient->client) {
+        return -1;
+    }
+
+    int in_buffer = this->available();
+    if (in_buffer <= 0) {
+        return -1;
+    }
+
+    return gsm_get_ssl_receive(this->sslclient, buf, min(size, (size_t)in_buffer));
 }
 
 int GSMClientSecure::peek() {
@@ -150,6 +155,10 @@ uint8_t GSMClientSecure::connected() {
 
     if (!this->sslclient->client) {
         return 0;
+    }
+
+    if (this->available() > 0) {
+        return true;
     }
 
     return this->sslclient->client->connected();

@@ -59,7 +59,7 @@ int gsm_mbedtls_net_recv_timeout(void *ctx, unsigned char *buf, size_t len, uint
     uint32_t startTime = millis();
     while (((millis() - startTime) < timeout)) {
         if (!client->connected()) {
-            return MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY;
+            break;
         }
         int wait_read = len - read_len;
         if (wait_read <= 0) {
@@ -75,10 +75,14 @@ int gsm_mbedtls_net_recv_timeout(void *ctx, unsigned char *buf, size_t len, uint
     }
 
     if (read_len == 0) {
-        // return MBEDTLS_ERR_SSL_TIMEOUT;
-        return MBEDTLS_ERR_SSL_WANT_READ;
+        if (!client->connected()) {
+            return MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY;
+        } else {
+            // return MBEDTLS_ERR_SSL_TIMEOUT;
+            return MBEDTLS_ERR_SSL_WANT_READ;
+        }
     }
-    
+
     return read_len;
     
     /*
@@ -124,7 +128,9 @@ int gsm_start_ssl_client(gsm_sslclient_context *ssl_client, const char *host, ui
     }
 
     GSM_LOG_V("Starting socket");
-    ssl_client->client = new GSMClient();
+    if (ssl_client->client == NULL) {
+        ssl_client->client = new GSMClient();
+    }
     if (!ssl_client->client->connect(host, port, timeout)) {
         GSM_LOG_E("Connect fail");
         return -1;
@@ -295,7 +301,7 @@ void gsm_stop_ssl_socket(gsm_sslclient_context *ssl_client)
     GSM_LOG_V("Cleaning SSL connection.");
 
     if (ssl_client->client != NULL) {
-        ssl_client->client->stop();
+        delete ssl_client->client;
         ssl_client->client = NULL;
     }
 
