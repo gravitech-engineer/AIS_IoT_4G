@@ -12,7 +12,6 @@ const char* ssid     = "your-ssid";     // your network SSID (name of wifi netwo
 const char* password = "your-password"; // your network password
 
 WiFiClientSecure client;
-AzureIoTHub iot(client);
 
 time_t getTime() {
   time_t now;
@@ -24,6 +23,8 @@ time_t getTime() {
   time(&now);
   return now;
 }
+
+AzureIoTHub iot(client, getTime);
 
 void setup() {
   Serial.begin(115200);
@@ -51,7 +52,7 @@ void setup() {
   configTime(0, 0, "pool.ntp.org"); // Config NTP server
 
   client.setCACert(AZURE_ROOT_CA);
-  iot.setGetTime(getTime);
+
   iot.configs(
     "<Hub Hostname>.azure-devices.net", // Hostname
     "<Device ID>",                      // Device ID

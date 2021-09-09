@@ -7,7 +7,7 @@ AzureIoTCentral::AzureIoTCentral() : AzureIoTHub() {
     AzureIoTHub::modelId = "";
 }
 
-AzureIoTCentral::AzureIoTCentral(Client &c) : AzureIoTHub(c) {
+AzureIoTCentral::AzureIoTCentral(Client &c, GetTimeHandlerFunction get_time_fn) : AzureIoTHub(c, get_time_fn) {
     AzureIoTHub::modelId = "";
 }
 
