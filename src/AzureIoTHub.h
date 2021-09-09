@@ -10,6 +10,7 @@
 #include "mbedtls/sha256.h"
 #include "SIM76xx.h"
 #include "GSMClientSecure.h"
+#include "GSMUdp.h"
 
 #define JSON_DOC_BUFFER_SIZE 1024
 #define TOKEN_LIFESPAN       60 // In min
@@ -20,7 +21,8 @@ typedef std::function<time_t()> GetTimeHandlerFunction;
 
 class AzureIoTHub {
     protected:
-        PubSubClient *mqtt;
+        Client *client = NULL;
+        PubSubClient *mqtt = NULL;
 
         String host = "<>.azure-devices.net";
         String deviceId = "";
@@ -34,7 +36,8 @@ class AzureIoTHub {
 
     public:
         AzureIoTHub();
-        AzureIoTHub(Client &c);
+        AzureIoTHub(Client &c, GetTimeHandlerFunction get_time_fn);
+        ~AzureIoTHub();
         
         bool configs(String host, String deviceId, String symmetricKey) ;
         void setGetTime(GetTimeHandlerFunction fn) ;
@@ -54,6 +57,5 @@ class AzureIoTHub {
         void loop() ;
 
 };
-
 
 #endif

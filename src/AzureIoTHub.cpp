@@ -22,19 +22,82 @@ typedef struct {
 CommandInfo *_startCommand_p = NULL;
 QueueHandle_t commandReplyQueue = NULL;
 
+uint32_t last_get_time = 0;
+uint32_t last_epoch = 0;
 time_t gsmGetTime() {
-    return GSM.getTime();
+    if ((last_epoch != 0) && ((millis() - last_get_time) < 60000)) { // less then 60s of last update
+        return last_epoch + ((millis() - last_get_time) / 1000);
+    }
+
+    GSMUdp Udp;
+    Udp.begin(2390);
+
+    uint8_t packetBuffer[48];
+    memset(packetBuffer, 0, sizeof(packetBuffer));
+    packetBuffer[0] = 0b11100011;
+    packetBuffer[1] = 0;
+    packetBuffer[2] = 6;
+    packetBuffer[3] = 0xEC;
+
+    packetBuffer[12]  = 49;
+    packetBuffer[13]  = 0x4E;
+    packetBuffer[14]  = 49;
+    packetBuffer[15]  = 52;
+
+    for (int i=0;i<5;i++) {
+        Udp.beginPacket("th.pool.ntp.org", 123);
+        Udp.write(packetBuffer, sizeof(packetBuffer));
+        if (Udp.endPacket() == 0) {
+            delay(50);
+            continue;
+        }
+
+        // Wait server reply
+        bool found_reply = false;
+        for (int i=0;i<10;i++) {
+            if (Udp.parsePacket()) {
+                found_reply = true;
+                break;
+            }
+            delay(100);
+        }
+        if (found_reply) {
+            break;
+        }
+    }
+    Udp.read(packetBuffer, 48);
+
+    unsigned long highWord = word(packetBuffer[40], packetBuffer[41]);
+    unsigned long lowWord = word(packetBuffer[42], packetBuffer[43]);
+    unsigned long secsSince1900 = highWord << 16 | lowWord;
+    const unsigned long seventyYears = 2208988800UL;
+    last_epoch = secsSince1900 - seventyYears;
+    last_get_time = millis();
+
+    return last_epoch;
 }
 
 AzureIoTHub::AzureIoTHub() {
     GSMClientSecure *client = new GSMClientSecure;
     client->setCACert(AZURE_ROOT_CA);
 
+    this->client = client;
     this->getTime = gsmGetTime;
-    AzureIoTHub((Client&)*client);
+
+    // MQTT lib setup
+    this->mqtt = new PubSubClient(*client);
+    this->mqtt->setBufferSize(MQTT_PACKET_SIZE);
+
+    // Queue setup
+    if (!commandReplyQueue) {
+        commandReplyQueue = xQueueCreate(10, sizeof(CommandReplay*));
+    }
 }
 
-AzureIoTHub::AzureIoTHub(Client& c) {
+AzureIoTHub::AzureIoTHub(Client &c, GetTimeHandlerFunction get_time_fn) {
+    this->client = &c;
+    this->getTime = get_time_fn;
+
     // MQTT lib setup
     this->mqtt = new PubSubClient(c);
     this->mqtt->setBufferSize(MQTT_PACKET_SIZE);
@@ -237,6 +300,16 @@ void AzureIoTHub::loop() {
             );
             free(reply);
         }
+    }
+}
+
+AzureIoTHub::~AzureIoTHub() {
+    if (this->mqtt) {
+        delete this->mqtt;
+    }
+
+    if (this->client) {
+        delete this->client;
     }
 }
 
