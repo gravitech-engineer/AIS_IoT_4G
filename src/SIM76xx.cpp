@@ -59,13 +59,11 @@ bool SIM76XX::begin() {
     if (!sim_is_ready) {
         xEventGroupClearBits(_sim_general_flags, SIM_READY_FLAG | SIM_CPIN_READY_FLAG | SIM_SMS_DONE_FLAG | SIM_PB_DONE_FLAG);
 
-        // Turn ON EC-21
-        digitalWrite(this->pwr_pin, LOW);
-        delay(100);
+        // Turn ON
         digitalWrite(this->pwr_pin, HIGH);
-        delay(800);
+        delay(1000);
         digitalWrite(this->pwr_pin, LOW);
-        delay(1000); // Wait Boot
+        delay(2000); // Wait Boot
 
         while (_SIM_Base.available()) (void)_SIM_Base.read();
 
