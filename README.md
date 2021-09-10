@@ -306,7 +306,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * [XY_MD02_Read](examples/RS485/XY_MD02_Read/XY_MD02_Read.ino) - ตัวอย่างการอ่านค่าอุณหภูมิและความชื้นจากเซ็นเซอร์รุ่น XY-MD02 ด้วย RS485 ผ่านโปรโตคอล MODBUS RTU
  * `HTTP`
    * [HTTP_SimpleGet](examples/HTTP/HTTP_SimpleGet/HTTP_SimpleGet.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน HTTP ด้วย Method GET
-   * [HTTPS_SimpleGet](examples/HTTP/HTTPS_SimpleGet/HTTPS_SimpleGet.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน HTTP ด้วย Method POST
+   * [HTTPS_SimpleGet](examples/HTTP/HTTPS_SimpleGet/HTTPS_SimpleGet.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน HTTPS ด้วย Method POST
    * [HTTPS_SimplePost](examples/HTTP/HTTPS_SimplePost/HTTPS_SimplePost.ino) - ตัวอย่างการรับ-ส่งข้อมูลผ่าน HTTPS ด้วย Method POST
  * `Azure IoT`
    * `4G`
