@@ -108,7 +108,7 @@ int GSMClientSecure::available() {
 
     int data_in_buffer = gsm_data_to_read(this->sslclient);
     if (data_in_buffer < 0) {
-        if (!this->sslclient->client->connected()) {
+        if (data_in_buffer == -0x7880) { // MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY
             this->stop();
         }
         return 0;
