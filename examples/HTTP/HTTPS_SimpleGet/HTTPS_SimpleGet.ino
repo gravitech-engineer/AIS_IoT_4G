@@ -17,9 +17,6 @@
 const char *serverAddress = "reqres.in";  // server address
 int port = 443;
 
-GSMClientSecure gsmClient;
-HttpClient client = HttpClient(gsmClient, serverAddress, port);
-
 void setup() {
   Serial.begin(115200);
   
@@ -27,17 +24,22 @@ void setup() {
       Serial.println("GSM setup fail");
       delay(2000);
   }
-
-  gsmClient.setInsecure(); // ignore CA check
 }
 
 void loop() {
   Serial.println("making GET request");
+
+  GSMClientSecure gsmClient;
+  gsmClient.setInsecure(); // ignore CA check
+
+  HttpClient client = HttpClient(gsmClient, serverAddress, port);
   client.get("/api/users/2"); // endpoint
 
   // read the status code and body of the response
   int statusCode = client.responseStatusCode();
   String response = client.responseBody();
+
+  client.stop();
 
   Serial.print("Status code: ");
   Serial.println(statusCode);

@@ -17,9 +17,6 @@
 const char *serverAddress = "185.78.164.23";  // server address
 int port = 80;
 
-GSMClient gsmClient;
-HttpClient client = HttpClient(gsmClient, serverAddress, port);
-
 void setup() {
   Serial.begin(115200);
   
@@ -31,11 +28,16 @@ void setup() {
 
 void loop() {
   Serial.println("making GET request");
+
+  GSMClient gsmClient;
+  HttpClient client = HttpClient(gsmClient, serverAddress, port);
   client.get("/");
 
   // read the status code and body of the response
   int statusCode = client.responseStatusCode();
   String response = client.responseBody();
+
+  client.stop();
 
   Serial.print("Status code: ");
   Serial.println(statusCode);
