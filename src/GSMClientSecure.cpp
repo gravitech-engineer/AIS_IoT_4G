@@ -108,6 +108,9 @@ int GSMClientSecure::available() {
 
     int data_in_buffer = gsm_data_to_read(this->sslclient);
     if (data_in_buffer < 0) {
+        if (!this->sslclient->client->connected()) {
+            this->stop();
+        }
         return 0;
     }
 
