@@ -10,6 +10,12 @@ GSMClient KEYWORD1
 GSMClientSecure KEYWORD1
 GSMUdp KEYWORD1
 GPS KEYWORD1
+AzureIoTHub KEYWORD1
+AzureIoTCentral KEYWORD1
+RS485 KEYWORD1
+PubSubClient KEYWORD1
+SHT40 KEYWORD1
+Storage KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
@@ -35,6 +41,23 @@ satellites	KEYWORD2
 getTime	KEYWORD2
 standby	KEYWORD2
 wakeup	KEYWORD2
+
+configs	KEYWORD2
+setGetTime	KEYWORD2
+isConnected	KEYWORD2
+setTelemetryValue	KEYWORD2
+sendMessage	KEYWORD2
+addCommandHandle	KEYWORD2
+
+readTemperature	KEYWORD2
+readHumidity	KEYWORD2
+
+fileWrite	KEYWORD2
+fileRead	KEYWORD2
+
+mkdir	KEYWORD2
+rmdir	KEYWORD2
+remove	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
