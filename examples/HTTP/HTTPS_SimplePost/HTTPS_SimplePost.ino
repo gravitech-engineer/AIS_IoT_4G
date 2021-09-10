@@ -16,7 +16,7 @@
 const char *serverAddress = "reqres.in";  // server address
 int port = 443;
 
-const char *root_digi_cert = \
+const char *root_digi_cert =
 "-----BEGIN CERTIFICATE-----\n"
 "MIIDdzCCAl+gAwIBAgIEAgAAuTANBgkqhkiG9w0BAQUFADBaMQswCQYDVQQGEwJJ\n"
 "RTESMBAGA1UEChMJQmFsdGltb3JlMRMwEQYDVQQLEwpDeWJlclRydXN0MSIwIAYD\n"
@@ -39,9 +39,6 @@ const char *root_digi_cert = \
 "R9I4LtD+gdwyah617jzV/OeBHRnDJELqYzmp\n"
 "-----END CERTIFICATE-----\n";
 
-GSMClientSecure gsmClient;
-HttpClient client = HttpClient(gsmClient, serverAddress, port);
-
 void setup() {
   Serial.begin(115200);
 
@@ -49,25 +46,29 @@ void setup() {
       Serial.println("GSM setup fail");
       delay(2000);
   }
-
-  gsmClient.setCACert(root_digi_cert); // Set CA Certificate
 }
 
 void loop() {
   Serial.println("making POST request");
   String contentType = "application/json";
-  String postData = \
+  String postData =
   "{"
   "  \"name\": \"morpheus\","
   "  \"job\": \"leader\""
   "}";
+  
+  GSMClientSecure gsmClient;
+  gsmClient.setCACert(root_digi_cert); // Set CA Certificate
 
+  HttpClient client = HttpClient(gsmClient, serverAddress, port);
   client.post("/api/users", contentType, postData);
 
   // read the status code and body of the response
   int statusCode = client.responseStatusCode();
   String response = client.responseBody();
 
+  client.stop();
+  
   Serial.print("Status code: ");
   Serial.println(statusCode);
   Serial.print("Response: ");
