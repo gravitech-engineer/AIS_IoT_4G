@@ -16,8 +16,7 @@
 #include <Arduino.h>
 #include <SIM76xx.h>
 #include <GSMClient.h>
-
-#include <PubSubClient.h> // Needs PubSubClient library, Install via Library Manager
+#include <PubSubClient.h>
 
 const char *server = "broker.hivemq.com";
 

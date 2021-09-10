@@ -15,8 +15,7 @@
 #include <Arduino.h>
 #include <SIM76xx.h>
 #include <GSMClient.h>
-
-#include <PubSubClient.h> // Needs PubSubClient library, Install via Library Manager
+#include <PubSubClient.h>
 
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
