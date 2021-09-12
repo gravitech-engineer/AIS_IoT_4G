@@ -152,16 +152,16 @@ void GSMClientSecure::flush() { // Not support
 }
 
 uint8_t GSMClientSecure::connected() {
+    if (this->available() > 0) {
+        return 1;
+    }
+
     if (!this->sslclient) {
         return 0;
     }
 
     if (!this->sslclient->client) {
         return 0;
-    }
-
-    if (this->available() > 0) {
-        return true;
     }
 
     return this->sslclient->client->connected();
