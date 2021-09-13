@@ -232,17 +232,55 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
     xEventGroupClearBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_SUCCESS_FLAG | GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG);
     _SIM_Base.URCRegister(">", [](String urcText) {
         _SIM_Base.URCDeregister(">");
-        
+
         uint8_t *buffOut = (uint8_t*)malloc(_data_send_size);
 
+        delay(50);
         _SIM_Base.send(_data_send_buf, _data_send_size);
 
+
         uint32_t beforeTimeout = _SIM_Base.getTimeout();
+        _SIM_Base.setTimeout(500);
+
+        uint16_t res_size = 0;
+        while(1) { // Try to fix bug
+            uint16_t n = _SIM_Base.readBytes(&buffOut[0], 1);
+            if (n != 1) {
+                GSM_LOG_E("GSM reply timeout");
+                free(buffOut);
+                xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG);
+                return;
+            }
+            if (buffOut[0] == _data_send_buf[0]) {
+                res_size += 1;
+                break;
+            } else if (buffOut[0] == '\r') { // I think i found URC return
+                if (_SIM_Base.find('\n')) {
+                    String urc = _SIM_Base.readStringUntil('\r');
+                    if (_SIM_Base.find('\n')) {
+                        urc = urc.substring(0, urc.length() - 1);
+                        GSM_LOG_E("Try to process URC: %s, ", urc.c_str());
+                        extern void URCProcess(String data);
+                        URCProcess(urc);
+                    } else {
+                        GSM_LOG_E("Try to read URC but fail (2)");
+                        free(buffOut);
+                        xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG);
+                        return;
+                    }
+                } else {
+                    GSM_LOG_E("Try to read URC but fail (1)");
+                    free(buffOut);
+                    xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG);
+                    return;
+                }
+            }
+        }
+
         _SIM_Base.setTimeout(3000);
-
-        uint16_t res_size = _SIM_Base.readBytes(buffOut, _data_send_size);
-
-        _SIM_Base.setTimeout(beforeTimeout);
+        res_size += _SIM_Base.readBytes(&buffOut[1], _data_send_size - 1);
+        
+        // uint16_t res_size = _SIM_Base.readBytes(buffOut, _data_send_size);
 
         if (res_size != _data_send_size) {
             GSM_LOG_E("GSM reply data size wrong, Send : %d, Rev: %d", _data_send_size, res_size);
@@ -257,6 +295,8 @@ size_t GSMClient::write(const uint8_t *buf, size_t size) {
             xEventGroupSetBits(_gsm_client_flags, GSM_CLIENT_SEND_DATA_TO_MODULE_FAIL_FLAG);
             return;
         }
+
+        _SIM_Base.setTimeout(beforeTimeout);
 
         free(buffOut);
 
