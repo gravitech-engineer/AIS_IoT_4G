@@ -67,6 +67,10 @@ bool AzureIoTCentral::connect() {
 
         dpsRegistrationsState = 0;
         while(1) {
+            if (!AzureIoTHub::mqtt->connected()) {
+                GSM_LOG_E("(DPS) MQTT disconnect !!!");
+                return false;
+            }
             AzureIoTHub::mqtt->loop();
             if (dpsRegistrationsState == 0) { // Wait responses 202
                 delay(1);
