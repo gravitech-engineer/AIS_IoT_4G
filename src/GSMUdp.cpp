@@ -204,7 +204,7 @@ int GSMUdp::endPacket() {
         _SIM_Base.setTimeout(beforeTimeout);
 
         if (res_size != _data_send_size) {
-            GSM_LOG_E("GSM reply data size wrong, Send : %d, Rev: %d", _data_send_size, res_size);
+            // GSM_LOG_E("GSM reply data size wrong, Send : %d, Rev: %d", _data_send_size, res_size);
             free(buffOut);
             xEventGroupSetBits(_gsm_udp_flags, GSM_UDP_SEND_DATA_TO_MODULE_FAIL_FLAG);
             return;
