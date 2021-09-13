@@ -69,6 +69,7 @@ bool SIMBase::send(String str) {
 bool SIMBase::send(uint8_t* data, uint16_t len) {
     TAKE_USE_SERIAL;
     this->write(data, len);
+    this->flush();
     GIVE_USE_SERIAL;
 
     return true;
