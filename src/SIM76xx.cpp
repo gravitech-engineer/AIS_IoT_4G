@@ -32,8 +32,9 @@ SIM76XX::SIM76XX(int rx_pin, int tx_pin, int pwr_pin) {
 }
 
 bool SIM76XX::begin() {
-    pinMode(this->pwr_pin, OUTPUT);
-    digitalWrite(this->pwr_pin, LOW);
+    PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[this->pwr_pin], PIN_FUNC_GPIO);
+    gpio_set_direction(static_cast<gpio_num_t>(this->pwr_pin), GPIO_MODE_OUTPUT);
+    gpio_set_level(static_cast<gpio_num_t>(this->pwr_pin), 0);
 
     static bool init_serial = false;
     if (!init_serial) {
@@ -60,10 +61,12 @@ bool SIM76XX::begin() {
         xEventGroupClearBits(_sim_general_flags, SIM_READY_FLAG | SIM_CPIN_READY_FLAG | SIM_SMS_DONE_FLAG | SIM_PB_DONE_FLAG);
 
         // Turn ON
-        digitalWrite(this->pwr_pin, HIGH);
-        delay(1000);
-        digitalWrite(this->pwr_pin, LOW);
-        delay(2000); // Wait Boot
+        for (int i=0;i<10;i++) {
+            gpio_set_level(static_cast<gpio_num_t>(this->pwr_pin), 1);
+            delay(100);
+            gpio_set_level(static_cast<gpio_num_t>(this->pwr_pin), 0);
+            delay(100); 
+        }
 
         while (_SIM_Base.available()) (void)_SIM_Base.read();
 
