@@ -458,5 +458,5 @@ void URCServiceTask(void*) {
 }
 
 
-SIMBase _SIM_Base(2); // Serial 2
+SIMBase _SIM_Base(1); // Serial 1
 
