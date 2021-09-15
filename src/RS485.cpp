@@ -397,7 +397,7 @@ int RS485Class::inputRegisterReadU16Array(int id, int address, uint16_t *registe
     delay(1); // wait noisy
     while (this->uart->available()) (void)this->uart->read(); // Skip noisy
 
-    uint8_t buff_reply[9];
+    uint8_t buff_reply[50];
     if (this->uart->readBytes(&buff_reply[0], 2) != 2) { // Read first byte
         Serial.println("Read DeviceId & Function Code timeout");
         return -1; // timeout
@@ -429,8 +429,8 @@ int RS485Class::inputRegisterReadU16Array(int id, int address, uint16_t *registe
         register_value[i] = ((uint16_t)buff_reply[3 + (i * 2) + 0] << 8) | buff_reply[3 + (i * 2) + 1];
     }
 
-    uint16_t crc_recheck = ((uint16_t)buff_reply[1 + (quantity * 2) + 1] << 8) | buff_reply[2 + (quantity * 2) + 0];
-    if (crc_recheck != CRC16(buff_reply, 7)) { // Check CRC
+    uint16_t crc_recheck = ((uint16_t)buff_reply[3 + (quantity * 2) + 1] << 8) | buff_reply[3 + (quantity * 2) + 0];
+    if (crc_recheck != CRC16(buff_reply, 3 + (quantity * 2))) { // Check CRC
         Serial.println("CRC invalid");
         return -1; // CRC invalid
     }
