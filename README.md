@@ -266,6 +266,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 
  * [Arduino - GSM](https://www.arduino.cc/en/Reference/GSM)
  * [Arduino - Arduino MKR GPS](https://www.arduino.cc/en/Reference/ArduinoMKRGPS)
+ * [Arduino - ArduinoRS485](https://www.arduino.cc/en/Reference/ArduinoRS485)
 
 ### ตัวอย่างโค้ดโปรแกรม
 
