@@ -3,8 +3,8 @@
 
 #include "Arduino.h"
 
-#define RS485_RX  17
-#define RS485_TX  16
+#define RS485_RX  16
+#define RS485_TX  17
 #define RS485_DIR 4
 
 class RS485Class : public Stream {
