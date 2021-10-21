@@ -39,7 +39,7 @@ String bin = "/sketch-name.ino.bin"; // bin file name with a slash in front.
 
 String host = "raw.githubusercontent.com";
 int port = 443;
-String bin = "/espressif/arduino-esp32/master/libraries/Update/examples/AWS_S3_OTA_Update/StartCounter.ino.bin";
+String bin = "/maxpromer/OTA_bin_test/main/BlinkHello.bin";
 
 // Utility to extract header value from headers
 String getHeaderValue(String header, String headerName) {
