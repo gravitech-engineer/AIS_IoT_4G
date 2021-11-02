@@ -11,10 +11,11 @@ AzureIoTCentral::AzureIoTCentral(Client &c, GetTimeHandlerFunction get_time_fn) 
     AzureIoTHub::modelId = "";
 }
 
-bool AzureIoTCentral::configs(String idScopt, String deviceId, String symmetricKey) {
+bool AzureIoTCentral::configs(String idScopt, String deviceId, String symmetricKey, String modelId) {
     this->idScopt = idScopt;
     this->deviceId = deviceId;
     AzureIoTHub::symmetricKey = symmetricKey;
+    AzureIoTHub::modelId = modelId;
 
     return true;
 }

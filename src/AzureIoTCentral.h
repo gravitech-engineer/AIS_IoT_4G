@@ -14,7 +14,7 @@ class AzureIoTCentral : public AzureIoTHub {
         AzureIoTCentral();
         AzureIoTCentral(Client &c, GetTimeHandlerFunction get_time_fn);
 
-        bool configs(String idScopt, String deviceId, String symmetricKey) ;
+        bool configs(String idScopt, String deviceId, String symmetricKey, String modelId="") ;
         bool connect() ;
 
 };
