@@ -8,6 +8,7 @@ EventGroupHandle_t _gsm_storage_flags = NULL;
 #define GSM_FILE_WRITE_SUCCESS_FLAG       (1 << 1)
 #define GSM_FILE_READ_FAIL_FLAG           (1 << 2)
 #define GSM_FILE_READ_SUCCESS_FLAG        (1 << 3)
+#define GSM_FILE_GET_LIST_SUCCESS_FLAG    (1 << 4)
 
 GSMStorage::GSMStorage() {
     if (!_gsm_storage_flags) {
@@ -26,6 +27,101 @@ bool GSMStorage::selectCurrentDirectory(String path) {
     
     _current_drive = path.charAt(0);
     return true;
+}
+
+bool GSMStorage::isFileExist(String path) {
+    const int index = path.lastIndexOf("/");
+    String basePath = path.substring(0, index + 1);
+    String fileName = path.substring(index + 1);
+
+    ListFileString listFile = this->getListOfFiles(basePath);
+    for (String s : listFile) {
+        if (s.equals(fileName)) return true;
+    }
+    return false;
+}
+
+ListFileString GSMStorage::getListOfDirectories(String path) {
+    ListFileString list;
+    String fileList = this->getListOf(DIR_TYPE, path);
+    int lastIndex = 0;
+    for (int i = 0; i < fileList.length(); i++) {
+        if (fileList.charAt(i) == '\r') {
+            String str = fileList.substring(lastIndex, i);
+            list.push_back(str);
+            lastIndex = i+2;
+        }
+    }
+    return list;
+}
+
+ListFileString GSMStorage::getListOfFiles(String path) {
+    ListFileString list;
+    String fileList = this->getListOf(FILE_TYPE, path);
+    int lastIndex = 0;
+    for (int i = 0; i < fileList.length(); i++) {
+        if (fileList.charAt(i) == '\r') {
+            String str = fileList.substring(lastIndex, i);
+            list.push_back(str);
+            lastIndex = i+2;
+        }
+    }
+    return list;
+}
+
+String *_list_buff = NULL;
+String GSMStorage::getListOf(ListType listType, String path) {
+    if (path.charAt(0) != _current_drive) {
+        if (!this->selectCurrentDirectory(path)) {
+            return String();
+        }
+    }
+
+    xEventGroupClearBits(_gsm_storage_flags, GSM_FILE_GET_LIST_SUCCESS_FLAG);
+    int type = static_cast<int>(listType);
+
+    String responseCheck = "+FSLS: ";
+    responseCheck.concat(listType == FILE_TYPE ? "FILES:" : "SUBDIRECTORIES:");
+
+    _SIM_Base.URCRegister(responseCheck, [responseCheck](String urcText) {
+        _SIM_Base.URCDeregister(responseCheck);
+        uint8_t buff[512];
+        uint16_t buffSize = _SIM_Base.getDataAfterIt(buff, 512);
+        
+        String strBuff = "";
+        for (int i = 0; i < buffSize; i++) {
+            strBuff.concat(static_cast<char>(buff[i]));
+        }
+
+        int index = strBuff.indexOf("\r\nOK");
+        _list_buff->clear();
+        _list_buff->concat(strBuff.substring(0, index));
+        xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_GET_LIST_SUCCESS_FLAG);
+    });
+    
+    String readData = "";
+    _list_buff = &readData;
+    if (!_SIM_Base.sendCommand("AT+FSLS=" + String(type))) {
+        GSM_LOG_E("Send req get list error timeout");
+        return String();
+    }
+
+    EventBits_t flags;
+    flags = xEventGroupWaitBits(_gsm_storage_flags, GSM_FILE_GET_LIST_SUCCESS_FLAG, pdTRUE, pdFALSE, pdMS_TO_TICKS(1000));
+
+    if (flags & GSM_FILE_GET_LIST_SUCCESS_FLAG) {
+        GSM_LOG_I("Get list successfully");
+    } else {
+        GSM_LOG_E("Get list Fail");
+        return String();
+    }
+
+    if (!_SIM_Base.waitOKorERROR(500)) {
+        GSM_LOG_E("Wait OK timeout");
+        return String(); // Timeout
+    }
+
+    return readData;
 }
 
 String *_content_to_write = NULL;
