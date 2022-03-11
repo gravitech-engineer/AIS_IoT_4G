@@ -29,9 +29,6 @@ class GSMStorage {
         bool isFileExist(String path) ;
         ListFileString getListOfFiles(String path) ;
         ListFileString getListOfDirectories(String path) ;
-
-        size_t getFileSize(String path) ;
-        String readBigFile(String path) ;
 };
 
 extern GSMStorage Storage;
