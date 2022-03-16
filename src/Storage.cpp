@@ -12,6 +12,8 @@ EventGroupHandle_t _gsm_storage_flags = NULL;
 #define GSM_FILE_GET_SIZE_FAIL_FLAG       (1 << 5)
 #define GSM_FILE_GET_SIZE_SUCCESS_FLAG    (1 << 6)
 
+#define OFFSET_CALCULATE_FILE_SIZE 50
+
 GSMStorage::GSMStorage() {
     if (!_gsm_storage_flags) {
         _gsm_storage_flags = xEventGroupCreate();
@@ -48,7 +50,7 @@ size_t GSMStorage::getFileSize(String path) {
 
         int size = 0;
         char dateOfFile[30];
-        if (sscanf(urcText.c_str(), "+FSATTRI: %d, %s", &size, dateOfFile) != 2) {
+        if (sscanf(urcText.c_str(), "+FSATTRI: %d,%s", &size, dateOfFile) != 2) {
             GSM_LOG_E("+CIPRXGET: 2: Respont format error");
             xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_GET_SIZE_FAIL_FLAG);
             return;
@@ -66,7 +68,7 @@ size_t GSMStorage::getFileSize(String path) {
     EventBits_t flags;
     flags = xEventGroupWaitBits(_gsm_storage_flags, GSM_FILE_GET_SIZE_SUCCESS_FLAG, pdTRUE, pdFALSE, pdMS_TO_TICKS(500));
 
-    if (flags & GSM_FILE_GET_LIST_SUCCESS_FLAG) {
+    if (flags & GSM_FILE_GET_SIZE_SUCCESS_FLAG) {
         GSM_LOG_I("Get list successfully");
     } else {
         GSM_LOG_E("Get list Fail");
@@ -302,6 +304,35 @@ String GSMStorage::fileRead(String path) {
     return read_data;    
 }
 
+String getFileData(String data) {
+    int indexCount = data.indexOf('\r');
+    std::vector<String> strList;
+    String capture = "";
+    String tmp = "";
+    
+    strList.push_back(data.substring(0, indexCount));
+
+    for (int i = indexCount; i < data.length(); i++) {
+        if (data.charAt(i) == '+') {
+            capture = data.substring(i, data.indexOf('\r', i));
+
+            int sizeToRead = 0;
+            if (sscanf(capture.c_str(), "+CFTRANTX: DATA,%d", &sizeToRead) == 1) {
+                i+= capture.length() + 2;
+                tmp = data.substring(i, i + sizeToRead);
+                strList.push_back(tmp);
+                i += sizeToRead;
+            }
+        }
+    } Serial.println();
+
+    tmp.clear();
+    for (String str: strList) {
+        tmp += str;
+    }
+    return tmp;
+} 
+
 String GSMStorage::readBigFile(String path) {
     if (path.charAt(0) != _current_drive) {
         if (!this->selectCurrentDirectory(path.substring(0, 2))) {
@@ -313,7 +344,7 @@ String GSMStorage::readBigFile(String path) {
 
     size_t sizeOfFile = this->getFileSize(path);
     if (sizeOfFile == 0) {
-        GSM_LOG_E("Can't get file size");
+        GSM_LOG_I("Can't get file size");
         return String();
     }
 
@@ -322,27 +353,26 @@ String GSMStorage::readBigFile(String path) {
             
         int real_data_can_read = 0;
         if (sscanf(urcText.c_str(), "+CFTRANTX: DATA,%d", &real_data_can_read) != 1) {
-            GSM_LOG_E("+CIPRXGET: 2: Respont format error");
+            GSM_LOG_I("+CIPRXGET: 2: Respont format error");
             xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_READ_FAIL_FLAG);
             return;
         }
 
-        uint8_t* buff = (uint8_t*)malloc(sizeOfFile + 2); // Add \r\n
-        uint16_t res_size = _SIM_Base.getDataAfterIt(buff, real_data_can_read + 2); // Add \r\n
+        int calSize = sizeOfFile + ((sizeOfFile / 512) * OFFSET_CALCULATE_FILE_SIZE);
+        uint8_t* buff = (uint8_t*)malloc(calSize + 2); // Add \r\n
+        uint16_t res_size = _SIM_Base.getDataAfterIt(buff, calSize + 2); // Add \r\n
         
         _read_buffer->clear();
         for (int i=0;i<res_size - 2;i++) { // remove \r\n
             _read_buffer->concat((char)buff[i]);
         }
+        *_read_buffer = getFileData(*_read_buffer);
+
         free(buff);
                 
-        // xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_READ_SUCCESS_FLAG);
-    });
-
-    _SIM_Base.URCRegister("+CFTRANTX: 0", [](String urcText) {
-        _SIM_Base.URCDeregister("+CFTRANTX: 0");
-
-        xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_READ_SUCCESS_FLAG);
+        if (_read_buffer->length() > 0) {
+            xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_READ_SUCCESS_FLAG);
+        }
     });
 
     String read_data = "";
