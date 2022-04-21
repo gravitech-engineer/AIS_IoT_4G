@@ -2,6 +2,7 @@
 #define __GSM_STORAGE_H__
 
 #include "Arduino.h"
+#include <vector>
 
 typedef enum {
     DIR_TYPE = 1,
