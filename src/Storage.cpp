@@ -324,7 +324,7 @@ String getFileData(String data) {
                 i += sizeToRead;
             }
         }
-    } Serial.println();
+    }
 
     tmp.clear();
     for (String str: strList) {
@@ -387,7 +387,7 @@ String GSMStorage::readBigFile(String path) {
     if (flags & GSM_FILE_READ_SUCCESS_FLAG) {
         GSM_LOG_I("File %s read in buffer OK", path.c_str());
     } else if (flags & GSM_FILE_READ_FAIL_FLAG) {
-        GSM_LOG_I("File %s read in buffer fail", path.c_str());
+        GSM_LOG_E("File %s read in buffer fail", path.c_str());
         return String();
     } else {
         GSM_LOG_E("File %s recv data in buffer timeout", path.c_str());
