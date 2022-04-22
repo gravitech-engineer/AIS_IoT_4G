@@ -2,6 +2,7 @@
 #define __GSM_STORAGE_H__
 
 #include "Arduino.h"
+#include <vector>
 
 typedef enum {
     DIR_TYPE = 1,
@@ -29,6 +30,9 @@ class GSMStorage {
         bool isFileExist(String path) ;
         ListFileString getListOfFiles(String path) ;
         ListFileString getListOfDirectories(String path) ;
+
+        size_t getFileSize(String path) ;
+        String readBigFile(String path) ;
 };
 
 extern GSMStorage Storage;

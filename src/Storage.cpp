@@ -9,6 +9,10 @@ EventGroupHandle_t _gsm_storage_flags = NULL;
 #define GSM_FILE_READ_FAIL_FLAG           (1 << 2)
 #define GSM_FILE_READ_SUCCESS_FLAG        (1 << 3)
 #define GSM_FILE_GET_LIST_SUCCESS_FLAG    (1 << 4)
+#define GSM_FILE_GET_SIZE_FAIL_FLAG       (1 << 5)
+#define GSM_FILE_GET_SIZE_SUCCESS_FLAG    (1 << 6)
+
+#define OFFSET_CALCULATE_FILE_SIZE 50
 
 GSMStorage::GSMStorage() {
     if (!_gsm_storage_flags) {
@@ -27,6 +31,56 @@ bool GSMStorage::selectCurrentDirectory(String path) {
     
     _current_drive = path.charAt(0);
     return true;
+}
+
+size_t GSMStorage::getFileSize(String path) {
+    int startIndexOfFile = path.lastIndexOf('/');
+    String fileName = path.substring(startIndexOfFile);
+
+    if (path.charAt(0) != _current_drive) {
+        if (!this->selectCurrentDirectory(path.substring(0, startIndexOfFile))) {
+            return 0;
+        }
+    }
+
+    xEventGroupClearBits(_gsm_storage_flags,  GSM_FILE_GET_SIZE_FAIL_FLAG | GSM_FILE_GET_SIZE_SUCCESS_FLAG);
+    int sizeOfFile = 0;
+    _SIM_Base.URCRegister("+FSATTRI:", [&sizeOfFile](String urcText) {
+        _SIM_Base.URCDeregister("+FSATTRI:");
+
+        int size = 0;
+        char dateOfFile[30];
+        if (sscanf(urcText.c_str(), "+FSATTRI: %d,%s", &size, dateOfFile) != 2) {
+            GSM_LOG_E("+CIPRXGET: 2: Respont format error");
+            xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_GET_SIZE_FAIL_FLAG);
+            return;
+        }
+
+        sizeOfFile = size;
+        xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_GET_SIZE_SUCCESS_FLAG);
+    });
+
+    if (!_SIM_Base.sendCommand("AT+FSATTRI=" + fileName)) {
+        GSM_LOG_E("Send req get attributes error timeout");
+        return 0;
+    }
+
+    EventBits_t flags;
+    flags = xEventGroupWaitBits(_gsm_storage_flags, GSM_FILE_GET_SIZE_SUCCESS_FLAG, pdTRUE, pdFALSE, pdMS_TO_TICKS(500));
+
+    if (flags & GSM_FILE_GET_SIZE_SUCCESS_FLAG) {
+        GSM_LOG_I("Get list successfully");
+    } else {
+        GSM_LOG_E("Get list Fail");
+        return 0;
+    }
+
+    if (!_SIM_Base.waitOKorERROR(500)) {
+        GSM_LOG_E("Wait OK timeout");
+        return 0; // Timeout
+    }
+
+    return sizeOfFile;
 }
 
 bool GSMStorage::isFileExist(String path) {
@@ -248,6 +302,103 @@ String GSMStorage::fileRead(String path) {
     }
 
     return read_data;    
+}
+
+String getFileData(String data) {
+    int indexCount = data.indexOf('\r');
+    std::vector<String> strList;
+    String capture = "";
+    String tmp = "";
+    
+    strList.push_back(data.substring(0, indexCount));
+
+    for (int i = indexCount; i < data.length(); i++) {
+        if (data.charAt(i) == '+') {
+            capture = data.substring(i, data.indexOf('\r', i));
+
+            int sizeToRead = 0;
+            if (sscanf(capture.c_str(), "+CFTRANTX: DATA,%d", &sizeToRead) == 1) {
+                i+= capture.length() + 2;
+                tmp = data.substring(i, i + sizeToRead);
+                strList.push_back(tmp);
+                i += sizeToRead;
+            }
+        }
+    }
+
+    tmp.clear();
+    for (String str: strList) {
+        tmp += str;
+    }
+    return tmp;
+} 
+
+String GSMStorage::readBigFile(String path) {
+    if (path.charAt(0) != _current_drive) {
+        if (!this->selectCurrentDirectory(path.substring(0, 2))) {
+            return String();
+        }
+    }
+
+    xEventGroupClearBits(_gsm_storage_flags, GSM_FILE_READ_SUCCESS_FLAG | GSM_FILE_READ_FAIL_FLAG);
+
+    size_t sizeOfFile = this->getFileSize(path);
+    if (sizeOfFile == 0) {
+        GSM_LOG_I("Can't get file size");
+        return String();
+    }
+
+    _SIM_Base.URCRegister("+CFTRANTX: DATA", [sizeOfFile](String urcText) {
+        _SIM_Base.URCDeregister("+CFTRANTX: DATA");
+            
+        int real_data_can_read = 0;
+        if (sscanf(urcText.c_str(), "+CFTRANTX: DATA,%d", &real_data_can_read) != 1) {
+            GSM_LOG_I("+CIPRXGET: 2: Respont format error");
+            xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_READ_FAIL_FLAG);
+            return;
+        }
+
+        int calSize = sizeOfFile + ((sizeOfFile / 512) * OFFSET_CALCULATE_FILE_SIZE);
+        uint8_t* buff = (uint8_t*)malloc(calSize + 2); // Add \r\n
+        uint16_t res_size = _SIM_Base.getDataAfterIt(buff, calSize + 2); // Add \r\n
+        
+        _read_buffer->clear();
+        for (int i=0;i<res_size - 2;i++) { // remove \r\n
+            _read_buffer->concat((char)buff[i]);
+        }
+        *_read_buffer = getFileData(*_read_buffer);
+
+        free(buff);
+                
+        if (_read_buffer->length() > 0) {
+            xEventGroupSetBits(_gsm_storage_flags, GSM_FILE_READ_SUCCESS_FLAG);
+        }
+    });
+
+    String read_data = "";
+    _read_buffer = &read_data;
+    if (!_SIM_Base.sendCommand("AT+CFTRANTX=\"" + path + "\"", 300)) {
+        GSM_LOG_E("Send req read file error");
+        return String(); // Timeout
+    }
+
+    EventBits_t flags;
+    flags = xEventGroupWaitBits(_gsm_storage_flags, GSM_FILE_READ_SUCCESS_FLAG | GSM_FILE_READ_FAIL_FLAG, pdTRUE, pdFALSE, 300 / portTICK_PERIOD_MS);
+    if (flags & GSM_FILE_READ_SUCCESS_FLAG) {
+        GSM_LOG_I("File %s read in buffer OK", path.c_str());
+    } else if (flags & GSM_FILE_READ_FAIL_FLAG) {
+        GSM_LOG_E("File %s read in buffer fail", path.c_str());
+        return String();
+    } else {
+        GSM_LOG_E("File %s recv data in buffer timeout", path.c_str());
+        return String();
+    }
+
+    if (!_SIM_Base.waitOKorERROR(300)) {
+        GSM_LOG_E("File %s read data wait OK timeout", path.c_str());
+    }
+
+    return read_data; 
 }
 
 bool GSMStorage::mkdir(String path) {
