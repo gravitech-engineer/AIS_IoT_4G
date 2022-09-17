@@ -64,9 +64,9 @@ public:
   void begin(String _thingIden, String _thingSencret, String _imei, unsigned int Zone = Production, uint16_t bufferSize = 1024, boolean builtinSensor = true);
   void beginCustom(String _client_id, boolean buildinSensor = true, String _host = "magellan.ais.co.th", int _port = mgPort, uint16_t bufferSize = 1024);
   void loop();
-  void heartbeat(unsigned int millis);
+  void heartbeat(unsigned int second);
   void subscribes(func_callback_registerList cb_subscribe_list);
-  void interval(unsigned long millis, func_callback_ms cb_interval);
+  void interval(unsigned long second, func_callback_ms cb_interval);
   boolean getServerTime();
   void getControl(String focusOnKey, ctrl_handleCallback ctrl_callback);
   void getControl(ctrl_PTAhandleCallback ctrl_pta_callback);
