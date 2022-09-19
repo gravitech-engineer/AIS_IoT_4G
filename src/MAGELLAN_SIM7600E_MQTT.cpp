@@ -47,7 +47,7 @@ void MAGELLAN_SIM7600E_MQTT::begin(uint16_t bufferSize, boolean builtInSensor)
 {
   if(bufferSize > _default_OverBufferSize)
   {
-    Serial.print(F("# Buffer size from you set over than 8192 set buffer to: "));
+    Serial.print(F("# You have set a buffer size greater than 8192, adjusts to: "));
     Serial.println(_default_OverBufferSize);
     this->setMQTTBufferSize(_default_OverBufferSize);   
   }
