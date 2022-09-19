@@ -10,6 +10,8 @@ Modified: 15 september 2022.
 #include <Client.h>
 #include "../PubSubClient.h"
 #include "../ArduinoJson-v6.18.3.h"
+#define useGSMClient  0
+#define useExternalClient 1
 
 class Attribute_MQTT_core
 {
