@@ -88,7 +88,7 @@ void MAGELLAN_SIM7600E_MQTT::Centric::begin(uint16_t setBufferSize)
 {
   if(setBufferSize > _default_OverBufferSize)
   {
-    Serial.print(F("# Buffer size from you set over than 8192 set buffer to: "));
+    Serial.print(F("# You have set a buffer size greater than 8192, adjusts to: "));
     Serial.println(_default_OverBufferSize); 
     coreMQTT->setMQTTBufferSize(_default_OverBufferSize);
   }
