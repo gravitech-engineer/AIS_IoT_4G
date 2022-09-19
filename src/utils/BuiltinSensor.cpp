@@ -11,7 +11,7 @@ void BuiltinSensor::gps_begin()
     {
         while (!GSM.begin())
         {
-           Serial.println(F("GSM setup fail on for \"GPS\""));
+           Serial.println(F("# Try to connect GPS..."));
         }    
     }
     while (!GPS.begin())
