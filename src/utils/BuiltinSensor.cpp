@@ -7,6 +7,13 @@ int timeoutInitGPS = 300; // 30 sec 300 * 100 ms = 3000 ms
 
 void BuiltinSensor::gps_begin()
 {
+    if(attr.clientNetInterface == useExternalClient)
+    {
+        while (!GSM.begin())
+        {
+           Serial.println(F("GSM setup fail on for \"GPS\""));
+        }    
+    }
     while (!GPS.begin())
     {
         if (cnt_initGPS >= timeoutInitGPS)
