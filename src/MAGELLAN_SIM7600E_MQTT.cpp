@@ -312,7 +312,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, String sensorValue)
 {
   if(sensorValue == "null")
   {
-    Serial.println("# add [Key] \""+sensorKey+"\" not success this function not allow set value \"null\"");
+    Serial.println("# add [Key] \""+sensorKey+"\" failed, this function does not allow set value \"null\"");
   }
   else{
     coreMQTT->addSensor(sensorKey, sensorValue, *attr.docSensor);
@@ -324,7 +324,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, const char* sensorVal
 {
   if(sensorValue == "null")
   {
-    Serial.println("# add [Key] \""+sensorKey+"\" not success this function not allow set value \"null\"");
+    Serial.println("# add [Key] \""+sensorKey+"\" failed, this function does not allow set value \"null\"");
   }
   else{
     coreMQTT->addSensor(sensorKey, sensorValue, *attr.docSensor);
