@@ -11,7 +11,7 @@ void setup()
 void loop() 
 {
   magel.loop();
-  magel.interval(5, [](){  
+  magel.interval(5, [](){  //time interval function inside every 5 second
     if(magel.gps.available())
     {
       Serial.println("# location Information ====================");
