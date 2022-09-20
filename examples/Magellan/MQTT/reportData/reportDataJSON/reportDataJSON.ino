@@ -21,7 +21,7 @@ void loop()
   {
     magel.subscribe.report.response(); // optional register for get Resp report
   });
-  magel.interval(10, [](){
+  magel.interval(10, [](){ //time interval function inside every 10 second
     //{1.} auto buildJSON and reportJSON
     magel.sensor.add("Location", "13.777864,100.544068");
     magel.sensor.add("random", (int)random(0, 100));
