@@ -22,7 +22,7 @@ void loop()
   {
     magel.subscribe.getServerTime(PLAINTEXT);
   });
-  magel.interval(5, [](){  
+  magel.interval(5, [](){  //time interval function inside every 5 second
     magel.getServerTime(); // request time from magellan server
   });
 }
