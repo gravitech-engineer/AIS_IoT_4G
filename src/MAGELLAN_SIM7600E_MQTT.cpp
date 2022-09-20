@@ -312,7 +312,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, String sensorValue)
 {
   if(sensorValue == "null")
   {
-    Serial.println("# add [Key] \""+sensorKey+"\" failed, this function does not allow set value \"null\"");
+    Serial.println("# add [Key] \""+sensorKey+"\" failed, this function does not allow to set value \"null\"");
   }
   else{
     coreMQTT->addSensor(sensorKey, sensorValue, *attr.docSensor);
@@ -324,7 +324,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, const char* sensorVal
 {
   if(sensorValue == "null")
   {
-    Serial.println("# add [Key] \""+sensorKey+"\" failed, this function does not allow set value \"null\"");
+    Serial.println("# add [Key] \""+sensorKey+"\" failed, this function does not allow to set value \"null\"");
   }
   else{
     coreMQTT->addSensor(sensorKey, sensorValue, *attr.docSensor);
@@ -361,7 +361,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::report()
   }
   else
   {
-    Serial.println(F("# Can't sensor.report Because Not set function \"void add(key,value)\" before sensor.report or Overload Memory toJSONString"));
+    Serial.println(F("# Can't sensor.report Because Not set function \"sensor.add(key,value)\" before sensor.report or Overload Memory toJSONString"));
   }
 }
 
@@ -521,7 +521,7 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::add(String clientConfigKey, String cl
 {
   if(clientConfigValue == "null")
   {
-    Serial.println("# add [Key] \""+clientConfigKey+"\" not success this function not allow set value \"null\"");
+    Serial.println("# add [Key] \""+clientConfigKey+"\" failed, this function does not allow to set value \"null\"");
   }
   else{
     coreMQTT->addSensor(clientConfigKey, clientConfigValue, attr.docClientConf);
@@ -532,7 +532,7 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::add(String clientConfigKey, const cha
 {
   if(clientConfigValue == "null")
   {
-    Serial.println("# add [Key] "+clientConfigKey+" not success this function not allow set value \"null\"");
+    Serial.println("# add [Key] "+clientConfigKey+" failed, this function not allow to set value \"null\"");
   }
   else{
     coreMQTT->addSensor(clientConfigKey, clientConfigValue, attr.docClientConf);
@@ -570,7 +570,7 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::save()
   }
   else
   {
-    Serial.println(F("# Can't clientConfig.save Because Not set function \"void add(key,value)\" before clientConfig.save"));
+    Serial.println(F("# Can't clientConfig.save Because Not set function \"clientConfig.add(key,value)\" before clientConfig.save"));
   }
 }
 
