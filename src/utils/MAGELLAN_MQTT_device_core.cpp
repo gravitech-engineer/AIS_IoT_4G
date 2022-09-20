@@ -592,7 +592,7 @@ void MAGELLAN_MQTT_device_core::setAuthMagellan(String _thingIden, String _thing
   if(!(CheckString_isDigit(_thingIden) && CheckString_isDigit(_thingSecret)))
   {
     Serial.print(F("# ERROR Can't connect to Magellan"));
-    Serial.print(F("# Parameter from you setting invalid \n [thingIdentify]=> "));
+    Serial.print(F("# Parameter from your setting is invalid \n [thingIdentify]=> "));
     Serial.print(_thingIden);
     Serial.print(F("   [thingSecret]=> "));
     Serial.println(_thingSecret);
