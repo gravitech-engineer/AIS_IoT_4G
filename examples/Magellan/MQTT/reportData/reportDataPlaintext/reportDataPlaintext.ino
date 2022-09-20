@@ -22,7 +22,7 @@ void loop()
   {
     magel.subscribe.report.response(PLAINTEXT); // optional register for get Resp report
   });
-  magel.interval(10, [](){
+  magel.interval(10, [](){ //time interval function inside every 10 second
     magel.report.send("temperature", String(random(25, 34)));
     magel.report.send("hello", "world");
   });
