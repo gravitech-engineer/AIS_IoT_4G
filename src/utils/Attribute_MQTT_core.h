@@ -11,7 +11,6 @@ Released for private usage.
 #include <Client.h>
 #include "../PubSubClient.h"
 #include "../ArduinoJson-v6.18.3.h"
-#include "./StorageMemory.h"
 #include "./FileSystem.h"
 #include "./BuiltinSensor.h"
 #include "./manageConfigOTAFile.h"
