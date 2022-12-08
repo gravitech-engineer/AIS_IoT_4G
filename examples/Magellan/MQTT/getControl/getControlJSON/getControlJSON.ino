@@ -23,6 +23,7 @@ void setup()
   //       Serial.println(Lamp1);
   //       magel.sensor.add("Lamp1", Lamp1);
   //       magel.control.ACK(magel.sensor.toJSONString()); //ACKNOWLEDGE control to magellan
+  //       magel.sensor.clear();
   //   }
   // });
 
@@ -36,7 +37,7 @@ void loop()
   magel.subscribes([](){
     magel.subscribe.control(); // subscribe server control content type JSON
   });
-  magel.interval(10,[](){ //time interval function inside every 10 second
+  magel.interval(10,[](){ //time interval function inside every 10000 millis
 
   });
 }

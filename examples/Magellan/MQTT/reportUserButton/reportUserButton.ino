@@ -28,8 +28,7 @@ void loop()
     magel.report.send(buttonValue);
     delay(300);
   }
-  magel.interval(10, [=](){ //time interval function inside every 10 second
-    /*<< lambda expressions capture clause [=] allow variable accessible to inside funtion
+  magel.interval(10, [=](){ /*<< lambda expressions capture clause [=] allow variable accessible to inside funtion
    as copy(use value only),if [&]  allow variable accessible to inside funtion as address(can use value and modify value from refference variable) 
    read more https://docs.microsoft.com/en-us/cpp/cpp/lambda-expressions-in-cpp?view=msvc-170
    */

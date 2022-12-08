@@ -27,7 +27,7 @@ void loop()
   magel.subscribes([](){
     magel.subscribe.serverConfig(PLAINTEXT); // subscribe server config content type PLAINTEXT
   });
-  magel.interval(10,[](){ //time interval function inside every 10 second
+  magel.interval(10,[](){ //time interval function inside every 10 sec
     magel.serverConfig.request("DELAY"); // request server config content type PLAINTEXT
     magel.serverConfig.request("INTERVAL"); // request server config content type PLAINTEXT
     magel.serverConfig.request("SSID"); // request server config content type PLAINTEXT

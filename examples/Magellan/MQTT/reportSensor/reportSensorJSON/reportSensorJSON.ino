@@ -20,7 +20,7 @@ void loop()
   {
     magel.subscribe.report.response(); // optional register for get Resp report
   });
-  magel.interval(10, [](){   //time interval function inside every 10 second
+  magel.interval(10, [](){   
     //{1} 
     delay(50);
     String Temperature = String(magel.builtInSensor.readTemperature());
