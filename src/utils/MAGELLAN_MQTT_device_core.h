@@ -21,12 +21,13 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-Magellan_4GBoard v2.5.3 AIS 4G Board.
+Magellan_4GBoard v2.6.1 AIS 4G Board.
 support SIMCOM SIM7600E(AIS 4G Board)
  
 Author:(POC Device Magellan team)      
 Create Date: 25 April 2022. 
-Modified: 1 september 2022.
+Modified: 1 december 2022.
+Released for private usage.
 */
 #ifndef MAGELLAN_MQTT_DEVICE_CORE_h
 #define MAGELLAN_MQTT_DEVICE_CORE_h
@@ -38,14 +39,15 @@ Modified: 1 september 2022.
 #include <GSMClient.h>
 #include <Wire.h>
 #include <SHT40.h>
+#include <Update.h>
+#include "Attribute_MQTT_core.h"
 #include "BuiltinSensor.h"
 
-//#define Dev_version "v2.5.3"
-#define lib_version "v1.0.0"
+// #define Dev_version "v2.6.1"
+#define lib_version "v1.1.0"
 
-//Response Payload format some function can be set.
 #define PLAINTEXT 0 //Plaintext
-#define JSON 1 //JSON
+#define JSON 1 //Json
 
 #define ERROR 0
 #define TOKEN 1
@@ -64,18 +66,25 @@ Modified: 1 september 2022.
 
 #define mgPort 1883
 #define hostCentric "centric-magellan.ais.co.th"
-
 //for define mode Timestamp
 #define SET_UNIXTS 0
 #define SET_UTC 1
 
 #define Production 1
+#define Staging 2 
+#define IoT 3
 
 #define _host_production "magellan.ais.co.th"
 
+#define defaultBuffer 1024
+#define defaultOTABuffer 8192
 #define _default_OverBufferSize 8192
 
+#define UNKNOWN -1
+#define OUT_OF_DATE 0
+#define UP_TO_DATE 1
 typedef struct {
+  // unsigned int Type;
   String Topic;
   String Key;
   String Action;
@@ -91,6 +100,17 @@ typedef struct {
   String endPoint_PORT;
 }Centric;
 
+typedef struct {
+    boolean isReadyOTA = false;
+    int firmwareIsUpToDate = -1;
+    boolean inProcessOTA = false;
+    unsigned int firmwareTotalSize = 0;
+    String firmwareName = "UNKNOWN";
+    String firmwareVersion = "UNKNOWN";
+    String checksum = "UNKNOWN";
+    String checksumAlgorithm = "UNKNOWN";
+}OTA_INFO;
+
 typedef std::function<void(String payload)> ctrl_handleCallback;
 typedef std::function<void(String payload)> ctrl_Json_handleCallback;  
 typedef std::function<void(JsonObject docs)> ctrl_JsonOBJ_handleCallback;  
@@ -101,6 +121,7 @@ typedef std::function<void(JsonObject docs)> conf_JsonOBJ_handleCallback;
 typedef std::function<void(String key, String value)> ctrl_PTAhandleCallback;
 typedef std::function<void(String key, String value)> conf_PTAhandleCallback;
 typedef std::function<void(EVENTS event)> resp_callback;
+// typedef std::function<void(String respCODE)> resp_callback;
 
 typedef std::function<void(void)> func_callback_registerList;
 
@@ -109,6 +130,8 @@ typedef std::function<void(void)> func_callback_registerList;
 //Client Internet interface connection
 #define useGSMClient  0
 #define useExternalClient 1
+
+// #define subRemainCallback std::function<void(void)> subRemain
 
 typedef std::function<void(void)> func_callback_ms;
 
@@ -215,8 +238,24 @@ public:
   boolean CheckString_isDigit(String valid_payload); //
   boolean CheckString_isDouble(String valid_payload); //
 
+  //OTA Feature//
+  void activeOTA(size_t part_size, boolean useChecksum = true);
+  void handleOTA(boolean OTA_after_getInfo = true);
+  boolean registerInfoOTA();
+  boolean registerDownloadOTA();
+  boolean unregisterInfoOTA();
+  boolean unregisterDownloadOTA();
+  boolean updateProgressOTA(String OTA_state, String description);
+  boolean requestFW_Info();
+  boolean requestFW_Download(unsigned int fw_part, size_t part_size);
+  void setChecksum(String md5Checksum);
+  void setChunkSize(size_t Chunksize);
+  static OTA_INFO OTA_info;
+  ///////////////
+
 private:
   int _default_bufferSize = 1024;
+  // BuiltinSensor mySensor;
   void reconnect(); //add on
   void checkConnection(); //
   void getEndPoint(); //get end point from centric
