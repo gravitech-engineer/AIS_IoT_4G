@@ -21,38 +21,69 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-Magellan_4GBoard v2.5.3 AIS 4G Board.
+Magellan_4GBoard v2.6.1 AIS 4G Board.
 support SIMCOM SIM7600E(AIS 4G Board)
  
-Author:Worawit Sayned (POC Device Magellan team)      
+Author:(POC Device Magellan team)      
 Create Date: 25 April 2022. 
-Modified: 1 september 2022.
+Modified: 1 december 2022.
+Released for private usage.
 */
 
 #include "MAGELLAN_MQTT_device_core.h"
+
 StaticJsonDocument<512> intern_docJSON;
- int Attribute_MQTT_core::clientNetInterface;
- Client *Attribute_MQTT_core::ClientNET = NULL;
- PubSubClient *Attribute_MQTT_core::mqtt_client = NULL; //MQTT Client
- boolean Attribute_MQTT_core::ctrl_regis_key = false;
- boolean Attribute_MQTT_core::ctrl_regis_pta = false;
- boolean Attribute_MQTT_core::ctrl_regis_json = false;
- boolean Attribute_MQTT_core::conf_regis_key = false;
- boolean Attribute_MQTT_core::conf_regis_pta = false;
- boolean Attribute_MQTT_core::conf_regis_json = false;
- boolean Attribute_MQTT_core::resp_regis = false;
- boolean Attribute_MQTT_core::ctrl_jsonOBJ = false;
- boolean Attribute_MQTT_core::conf_jsonOBJ = false;
- boolean Attribute_MQTT_core::useAdvanceCallback = false;
- String Attribute_MQTT_core::ext_Token;
- String Attribute_MQTT_core::ext_EndPoint;
- boolean Attribute_MQTT_core::useBuiltInSensor = false;
- boolean Attribute_MQTT_core::triggerRemainSub = true;
+boolean Attribute_MQTT_core::isBypassAutoUpdate = false; // false = autoUpdate, true = unuse autoUpdate
+boolean Attribute_MQTT_core::usingCheckUpdate = false;
+boolean Attribute_MQTT_core::checkFirmwareUptodate = false;
+boolean Attribute_MQTT_core::isFirmwareUptodate = false;
+boolean Attribute_MQTT_core::flagAutoOTA = true;
+size_t Attribute_MQTT_core::calculate_chunkSize = 0; //calculate part size from clientBuffer
+size_t Attribute_MQTT_core::incomingChunkSize = 0;
+unsigned int Attribute_MQTT_core::fw_total_size = 0;
+unsigned int Attribute_MQTT_core::fw_count_chunk = 0;
+unsigned int Attribute_MQTT_core::chunk_size = 0;
+unsigned int Attribute_MQTT_core::totalChunk = 0;
+unsigned int Attribute_MQTT_core::current_chunk = 0;
+unsigned int Attribute_MQTT_core::current_size = 0;
+unsigned int Attribute_MQTT_core::default_chunk_size = 4096;
+int Attribute_MQTT_core::clientNetInterface;
+Client *Attribute_MQTT_core::ClientNET = NULL;
+PubSubClient *Attribute_MQTT_core::mqtt_client = NULL; //MQTT Client
+boolean Attribute_MQTT_core::ctrl_regis_key = false;
+boolean Attribute_MQTT_core::ctrl_regis_pta = false;
+boolean Attribute_MQTT_core::ctrl_regis_json = false;
+boolean Attribute_MQTT_core::conf_regis_key = false;
+boolean Attribute_MQTT_core::conf_regis_pta = false;
+boolean Attribute_MQTT_core::conf_regis_json = false;
+boolean Attribute_MQTT_core::resp_regis = false;
+boolean Attribute_MQTT_core::ctrl_jsonOBJ = false;
+boolean Attribute_MQTT_core::conf_jsonOBJ = false;
+boolean Attribute_MQTT_core::using_Checksum = false;
+boolean Attribute_MQTT_core::useAdvanceCallback = false;
+String Attribute_MQTT_core::ext_Token;
+String Attribute_MQTT_core::ext_EndPoint;
+boolean Attribute_MQTT_core::inProcessOTA = false;
+boolean Attribute_MQTT_core::useBuiltInSensor = false;
+boolean Attribute_MQTT_core::remain_ota_fw_info_match = false;
+boolean Attribute_MQTT_core::flag_remain_ota = false;
+String Attribute_MQTT_core::valid_remain_fw_name = "";
+unsigned int Attribute_MQTT_core::valid_remain_fw_size = 0;
+boolean Attribute_MQTT_core::triggerRemainOTA = true;
+boolean Attribute_MQTT_core::triggerRemainSub = true;
+boolean Attribute_MQTT_core::remind_Event_GET_FW_infoOTA = false;
+boolean Attribute_MQTT_core::startReqDownloadOTA = false;
+boolean Attribute_MQTT_core::checkTimeout_request_download_fw = false;
+unsigned int Attribute_MQTT_core::timeout_req_download_fw = 180000;
+unsigned long Attribute_MQTT_core::prv_cb_timeout_millis = 0;
+StaticJsonDocument<512> Attribute_MQTT_core::docClientConf;
+DynamicJsonDocument *Attribute_MQTT_core::adjDoc = new DynamicJsonDocument(256);
+DynamicJsonDocument *Attribute_MQTT_core::docSensor = new DynamicJsonDocument(1024);
 
- StaticJsonDocument<512> Attribute_MQTT_core::docClientConf;
- DynamicJsonDocument *Attribute_MQTT_core::adjDoc = new DynamicJsonDocument(256);
- DynamicJsonDocument *Attribute_MQTT_core::docSensor = new DynamicJsonDocument(1024);
+OTA_INFO MAGELLAN_MQTT_device_core::OTA_info;
 
+boolean attemp_download_1 = false;
+boolean attemp_download_2 = false;
 
 String b2str(byte* payload, unsigned int length) // convert byte* to String
 {
@@ -151,6 +182,516 @@ String deConfig(String jsonContent)
   }
   return content;
 }
+/////////// Feature OTA function none member in class //////////////////////
+boolean pubClientConfig(String payload) //for external function member
+{
+  String topic = "api/v2/thing/"+ attr.ext_Token +"/config/persist";
+  boolean Pub_status = attr.mqtt_client->publish(topic.c_str(), payload.c_str());
+  bool _debug_ = (Pub_status == true)? "Success" : "Failure"; 
+  Serial.println(F("-------------------------------"));
+  Serial.println("# Save ClientConfig: "+ _debug_);
+  Serial.println("# Payload: "+ payload);
+  return Pub_status;
+}
+
+boolean sub_InfoOTA()
+{
+  String topic = "api/v2/thing/"+ attr.ext_Token+"/firmwareinfo/resp";
+  boolean Sub_status = attr.mqtt_client->subscribe(topic.c_str());
+  // Serial.println(topic);
+  String Debug = (Sub_status == true)? "Success" : "Failure";
+  Serial.println(F("-------------------------------"));
+  Serial.println("# Subscribe Firmware Information: "+ Debug);
+  return Sub_status;
+}
+
+boolean unsub_InfoOTA()
+{
+  String topic = "api/v2/thing/"+attr.ext_Token+"/firmwareinfo/resp";
+  boolean Sub_status = attr.mqtt_client->unsubscribe(topic.c_str());
+  // Serial.println(topic);
+  String Debug = (Sub_status == true)? "Success" : "Failure";
+  Serial.println(F("-------------------------------"));
+  Serial.println("# Unsubscribe Firmware Information: "+ Debug);
+  return Sub_status;
+}
+
+boolean pub_Info()
+{
+  String topic = "api/v2/thing/"+attr.ext_Token+"/firmwareinfo/req";
+  boolean Pub_status = attr.mqtt_client->publish(topic.c_str(), " ");
+  // Serial.println(topic);
+  String Debug = (Pub_status == true)? "Success" : "Failure"; 
+  Serial.println(F("-------------------------------"));
+  Serial.println("# Request Firmware Information: "+ Debug);
+  return Pub_status;  
+}
+
+boolean sub_DownloadOTA()
+{
+  String topic = "api/v2/thing/"+attr.ext_Token+"/firmwaredownload/resp/+";
+  boolean Sub_status = attr.mqtt_client->subscribe(topic.c_str());
+  // Serial.println(topic);
+  String Debug = (Sub_status == true)? "Success" : "Failure";
+  Serial.println(F("-------------------------------"));
+  Serial.println("# Subscribe Firmware Download: "+ Debug);
+  return Sub_status; 
+}
+
+boolean unsub_DownloadOTA()
+{
+  String topic = "api/v2/thing/"+attr.ext_Token+"/firmwaredownload/resp/+";
+  boolean Sub_status = attr.mqtt_client->unsubscribe(topic.c_str());
+  // Serial.println(topic);
+  String Debug = (Sub_status == true)? "Success" : "Failure";
+  Serial.println(F("-------------------------------"));
+  Serial.println("# Unsubscribe Firmware Download: "+ Debug);
+  return Sub_status; 
+}
+
+boolean pub_Download(unsigned int fw_chunk, size_t chunk_size)
+{
+  if(fw_chunk == 0)
+  {
+    attr.startReqDownloadOTA = true;
+  }
+  attr.checkTimeout_request_download_fw = true;
+  String topic = "api/v2/thing/"+attr.ext_Token+"/firmwaredownload/req/"+String(fw_chunk)+"?filesize="+String(chunk_size);
+  boolean Pub_status = attr.mqtt_client->publish(topic.c_str(), " ");
+  // Serial.println(topic);  
+  String Debug = (Pub_status == true)? "Success" : "Failure"; 
+  Serial.println(F("------------------------------>"));
+  Serial.println("# ->Request Firmware Download on chunk: "+String(fw_chunk)+" Status: "+ Debug);
+  Serial.println("# ->Chunk size request: "+String(chunk_size));
+  return Pub_status;   
+}
+
+boolean pub_UpdateProgress(String FOTA_State, String description)
+{
+  delay(3000);
+  String topic = "api/v2/thing/"+attr.ext_Token+"/fotaupdateprogress/req/?FOTAState="+FOTA_State;
+  boolean Pub_status = false;
+  if(description.indexOf("description") != -1)
+  {
+    Pub_status = attr.mqtt_client->publish(topic.c_str(), description.c_str());
+    Pub_status = attr.mqtt_client->publish(topic.c_str(), description.c_str());
+    Serial.println(F("-------------------------------"));
+    Serial.println("# STATE OTA Description: "+ description);
+    Serial.println(F("-------------------------------"));
+  }
+  else{
+    Pub_status = attr.mqtt_client->publish(topic.c_str(), "");
+    Pub_status = attr.mqtt_client->publish(topic.c_str(), "");
+  }
+  
+  String Debug  = (Pub_status == true)? "Success" : "Failure"; 
+  Serial.println(F("-------------------------------"));
+  Serial.println("# Update Progress OTA state discription: \""+ FOTA_State +"\" Status: "+ Debug);
+  return Pub_status;  
+}
+
+boolean check_remain_fw_isMatch(String validate_fw_name,unsigned int validate_fw_size, String descriptionWhenFail)
+{
+
+  if(MAGELLAN_MQTT_device_core::OTA_info.firmwareName == validate_fw_name && 
+  MAGELLAN_MQTT_device_core::OTA_info.firmwareTotalSize == validate_fw_size)
+  {
+    Serial.println(F("# Check firmware information incoming is match OTA still working"));
+    return true;
+  }
+  else
+  {
+    Serial.println(F("# Check firmware information does not match after reconnect"));
+    // pub_UpdateProgress("FAILED","{\"description\":\""+descriptionWhenFail+"\",\"errordescription\":\""+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+"\"}");
+    pub_UpdateProgress("FAILED","{\"errordescription\":\""+descriptionWhenFail+"(version. "+ MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+")\"}");
+    configOTAFile.saveSuccessOrFail("fail");
+
+    // readFS_pubClientConfig();
+
+    return false;
+  }
+}
+
+void checkUpdate(String topic, String payload)
+{
+  if(topic.indexOf("/firmwareinfo/resp") != -1)
+  {
+    Serial.println(F("========================"));
+    Serial.println(F("# Check incoming firmware update"));
+    if(payload != "{}" && payload.indexOf("20000") != -1)
+    {
+      JsonObject fw_doc = deJson(payload);
+      String name = fw_doc["namefirmware"];
+      unsigned int size = fw_doc["sizefirmware"];
+      String version = fw_doc["versionfirmware"];
+      String c_sum = fw_doc["checksum"];
+      String al_c_sum = fw_doc["checksumAlgorithm"];
+      attr.valid_remain_fw_name = name;
+      attr.valid_remain_fw_size = size;
+      if(name == "null" && size <= 0)
+      {
+        Serial.println(F("# [warning]Firmware Information is wrong or empty!"));
+      }
+      else{
+        attr.checkFirmwareUptodate = configOTAFile.compareFirmwareIsUpToDate(fw_doc);
+
+        MAGELLAN_MQTT_device_core::OTA_info.firmwareName = name;
+        MAGELLAN_MQTT_device_core::OTA_info.firmwareTotalSize = size;
+        MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion = version;
+        MAGELLAN_MQTT_device_core::OTA_info.checksum = c_sum;
+        MAGELLAN_MQTT_device_core::OTA_info.checksumAlgorithm = al_c_sum;
+            
+        if(attr.checkFirmwareUptodate)
+        {
+          MAGELLAN_MQTT_device_core::OTA_info.firmwareIsUpToDate = UP_TO_DATE;
+        }
+        else{
+          MAGELLAN_MQTT_device_core::OTA_info.firmwareIsUpToDate = OUT_OF_DATE;
+        }     
+        attr.usingCheckUpdate = false;
+      }
+    }
+  }
+}
+
+void save_fw_info(String topic, String payload)
+{
+  // Serial.println("-save_fw_info: "+payload);
+  if(topic.indexOf("/firmwareinfo/resp") != -1)
+  {
+    Serial.println(F("======================="));
+    Serial.println(F("# Detect incoming Firmware Information"));
+    if(payload != "{}" && payload.indexOf("20000") != -1)
+    {
+      JsonObject fw_doc = deJson(payload);  
+        String name = fw_doc["namefirmware"];
+        unsigned int size = fw_doc["sizefirmware"];
+        String version = fw_doc["versionfirmware"];
+        String c_sum = fw_doc["checksum"];
+        String al_c_sum = fw_doc["checksumAlgorithm"];
+        attr.valid_remain_fw_name = name;
+        attr.valid_remain_fw_size = size;
+        if(name == "null" && size <= 0)
+        {
+          Serial.println(F("# [warning]Firmware Information is wrong or empty!"));          
+        }
+        else // validate data pass
+        {
+          if((attr.inProcessOTA) && (attr.flag_remain_ota)) // inprocess but remain connect with broker
+          {
+            attr.remain_ota_fw_info_match = check_remain_fw_isMatch(attr.valid_remain_fw_name,
+              attr.valid_remain_fw_size, "firmware information not match after reconnect");
+
+            attr.flag_remain_ota = false;
+            Serial.println(F("======================="));
+            Serial.println(F("# Validate from reconnect Firmware OTA Information #"));
+            // Serial.println("  ->Firmware Name: "+MAGELLAN_MQTT_device_core::OTA_info.firmwareName);
+            // Serial.println("  ->Firmware total size: "+String(MAGELLAN_MQTT_device_core::OTA_info.firmwareTotalSize));
+            Serial.println("  ->Firmware version: "+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion);
+            // Serial.println("  ->Firmware checksum Algorithm: "+MAGELLAN_MQTT_device_core::OTA_info.checksumAlgorithm);
+            // Serial.println("  ->Firmware checksum: "+MAGELLAN_MQTT_device_core::OTA_info.checksum);
+            Serial.println(F("======================="));
+            if(!attr.remain_ota_fw_info_match)
+            {
+              Serial.println(F("# [ERROR] Device must restart because firmware change #"));
+              Serial.println(F("# firmware not match validate OTA information after reconnect"));
+              delay(5000);
+              ESP.restart();
+            }
+            else
+            {
+              pub_Download(attr.fw_count_chunk, attr.chunk_size);
+            }
+          }
+          else if((attr.inProcessOTA) && (!attr.triggerRemainOTA)) // inprocess get info fw
+          {
+            attr.remain_ota_fw_info_match = check_remain_fw_isMatch(attr.valid_remain_fw_name,
+              attr.valid_remain_fw_size, "user change firmware version while device in OTA process ");
+            if(!attr.remain_ota_fw_info_match)
+            {
+              Serial.println(F("======================="));
+              Serial.println(F("# Firmware OTA Information Incoming While inProcessOTA #"));
+              // Serial.println("  ->Firmware Name: "+MAGELLAN_MQTT_device_core::OTA_info.firmwareName);
+              // Serial.println("  ->Firmware total size: "+String(MAGELLAN_MQTT_device_core::OTA_info.firmwareTotalSize));
+              Serial.println("  ->Firmware version: "+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion);
+              // Serial.println("  ->Firmware checksum Algorithm: "+MAGELLAN_MQTT_device_core::OTA_info.checksumAlgorithm);
+              Serial.println("  ->Firmware checksum: "+MAGELLAN_MQTT_device_core::OTA_info.checksum);
+              Serial.println(F("# [ERROR] Device must restart because firmware change #"));
+              // pub_UpdateProgress("FAILED","{\"description\":\"user change firmware version while device in process OTA\"}");
+              Serial.println(F("======================="));
+              delay(5000);
+              ESP.restart();
+            }
+          }          
+
+          if(!attr.inProcessOTA) // first get info and save to variable
+          {
+            attr.isFirmwareUptodate = configOTAFile.compareFirmwareOTA(fw_doc);
+            MAGELLAN_MQTT_device_core::OTA_info.firmwareIsUpToDate = ((attr.isFirmwareUptodate == true)? UP_TO_DATE : OUT_OF_DATE);
+            // MAGELLAN_MQTT_device_core::OTA_info.firmwareName = name;
+            MAGELLAN_MQTT_device_core::OTA_info.firmwareName = configOTAFile.readSpacificFromConfFile("namefirmware");
+            // MAGELLAN_MQTT_device_core::OTA_info.firmwareTotalSize = size;
+            size_t buffReadSizefirmware = configOTAFile.readSpacificFromConfFile("sizefirmware").toInt();
+            attr.fw_total_size = buffReadSizefirmware;
+            MAGELLAN_MQTT_device_core::OTA_info.firmwareTotalSize = buffReadSizefirmware;
+            // MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion = version;
+            MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion = configOTAFile.readSpacificFromConfFile("versionfirmware");
+            // MAGELLAN_MQTT_device_core::OTA_info.checksum = c_sum;
+            MAGELLAN_MQTT_device_core::OTA_info.checksum = configOTAFile.readSpacificFromConfFile("checksum");
+            // MAGELLAN_MQTT_device_core::OTA_info.checksumAlgorithm = al_c_sum;
+            MAGELLAN_MQTT_device_core::OTA_info.checksumAlgorithm = configOTAFile.readSpacificFromConfFile("checksumAlgorithm");
+            
+            unsigned int b_cal_chunk_todo = (attr.fw_total_size / attr.chunk_size) +1;
+            // MAGELLAN_MQTT_device_core::OTA_info.totalChunk = b_cal_chunk_todo;
+            attr.totalChunk = b_cal_chunk_todo;
+
+            if(!attr.isFirmwareUptodate)
+            {
+              Serial.println("# Estimate OTA toltal request chunk : "+String(attr.totalChunk));
+              pub_UpdateProgress("INITIALIZE","{\"description\":\"Initialize firmware version: "+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+
+              " size: "+ String(attr.fw_total_size)+"\"}");
+              MAGELLAN_MQTT_device_core::OTA_info.isReadyOTA = true;
+              Serial.println(F("========================================"));
+              Serial.println(F("# Firmware OTA information available #"));
+              // Serial.println("  ->Firmware Name: "+MAGELLAN_MQTT_device_core::OTA_info.firmwareName);
+              // Serial.println("  ->Firmware total size: "+String(MAGELLAN_MQTT_device_core::OTA_info.firmwareTotalSize));
+              Serial.println("  ->Firmware version: "+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion);
+              // Serial.println("  ->Firmware checksum Algorithm: "+MAGELLAN_MQTT_device_core::OTA_info.checksumAlgorithm);
+              Serial.println("  ->Firmware checksum: "+MAGELLAN_MQTT_device_core::OTA_info.checksum);
+              Serial.println(F("========================================"));
+              
+              // save Client config when firmware change and file ota config change 
+              // readFS_pubClientConfig();
+
+              attr.remind_Event_GET_FW_infoOTA = false;
+            }
+          }
+        }
+    }
+    else
+    {
+      Serial.println(F("# Fail to get firmware Information or you don't have firmware OTA"));
+      Serial.println("# Detail: "+payload);
+    }
+  }
+}
+
+
+String ERORRdescriptionUpdate()
+{
+  switch (Update.getError())
+  {
+  case 0:
+    return "UPDATE_ERROR_OK";
+    break;
+  case 1:
+    return "UPDATE_ERROR_WRITE";
+    break;
+  case 2:
+    return "UPDATE_ERROR_ERASE";
+    break;
+  case 3:
+    return "UPDATE_ERROR_READ";
+    break;
+  case 4:
+    return "UPDATE_ERROR_SPACE";
+    break;
+  case 5:
+    return "UPDATE_ERROR_SIZE";
+    break;
+  case 6:
+    return "UPDATE_ERROR_STREAM";
+    break;
+  case 7:
+    return "UPDATE_ERROR_MD5";
+    break;
+  case 8:
+    return "UPDATE_ERROR_MAGIC_BYTE";
+    break;
+  case 9:
+    return "UPDATE_ERROR_ACTIVATE{firmware is mismatch this board}";
+    break;
+  case 10:
+    return "UPDATE_ERROR_NO_PARTITION";
+    break;
+  case 11:
+    return "UPDATE_ERROR_BAD_ARGUMENT";
+    break;
+  case 12:
+    return "UPDATE_ERROR_ABORT";
+    break;
+  default:
+    return "ERROR_UNKNOWN";
+    break;
+  }
+}
+
+void validate_lostOTA_Data_incoming()
+{
+  if(attr.current_chunk+1 < attr.totalChunk)
+  {
+    if(attr.incomingChunkSize < attr.chunk_size)
+    {
+      Serial.println(F("# [Warning]Lost some data while in process OTA"));
+      Serial.println(F("# [Warning]Device must restart"));
+      // pub_UpdateProgress("FAILED","{\"description\":\"Data incoming lost or incorrect\",\"errordescription\":\""+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+"\"}");
+      pub_UpdateProgress("FAILED","{\"errordescription\":\"Data incoming lost or incorrect (version. "+ MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+")\"}");
+      configOTAFile.saveSuccessOrFail("fail");
+
+      delay(5000);
+      ESP.restart();
+    }
+  }
+}
+
+void updateFirmware(uint8_t *data, size_t len)
+{  
+  Update.write(data, len); 
+  attr.current_size += len;
+  attr.incomingChunkSize = (int)len;
+  Serial.println("# <-Incoming chunk size: "+String(attr.incomingChunkSize));
+  unsigned int calc_percent = map(attr.current_size, 0, attr.fw_total_size, 0, 100);
+  Serial.println("# <-Current firmware size: "+ String(attr.current_size)+"/"+String(attr.fw_total_size)+ " => ["+String(calc_percent)+" %]");
+  validate_lostOTA_Data_incoming();
+  if (attr.current_size != attr.fw_total_size)
+  {
+    return;
+  }
+  
+  if(Update.end(true))
+    {
+      // pub_UpdateProgress("DOWNLOADED","{\"description\":\"Download firmware name: "+String(MAGELLAN_MQTT_device_core::OTA_info.firmwareName)+
+      // " size: "+String(MAGELLAN_MQTT_device_core::OTA_info.firmwareTotalSize)+"\"}");
+      pub_UpdateProgress("DOWNLOADED","");
+      if(attr.using_Checksum)
+      {
+        // pub_UpdateProgress("VERIFIED","{\"description\":\"verify checksum: "+MAGELLAN_MQTT_device_core::OTA_info.checksum+"\"}");
+        pub_UpdateProgress("VERIFIED","");
+      }
+      Serial.println(F("-------------------------------"));
+      Serial.println(F("# OTA done!"));
+      if (Update.isFinished())
+      {
+        // pub_UpdateProgress("UPDATED","{\"description\":\"firmware name: "+String(MAGELLAN_MQTT_device_core::OTA_info.firmwareName)+" size: "
+        // +String(attr.fw_total_size)+" version: "+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+"\"}");
+        // pub_UpdateProgress("UPDATED","{\"description\":\""+String(MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion)+"\"}");
+        pub_UpdateProgress("UPDATED", "");
+        Serial.println(F("# Update successfully completed. Rebooting."));
+        configOTAFile.saveSuccessOrFail("done");
+        
+        String readfileConfig = configOTAFile.readConfigFileOTA();
+        configOTAFile.saveLastedOTA(readfileConfig);
+        
+        String fw_infoInFIleSys; 
+        JsonObject fw_last = configOTAFile.readObjectLastedOTA();
+        int bufferFW_size = fw_last["sizefirmware"];
+
+        fw_last.remove("namefirmware");
+        fw_last.remove("sizefirmware");
+        fw_last.remove("checksumAlgorithm");
+        String bufferFW_v = fw_last["versionfirmware"];
+        fw_last["firmwareVersion"] = bufferFW_v;
+        fw_last.remove("versionfirmware");
+        serializeJson(fw_last, fw_infoInFIleSys);
+
+        if(fw_infoInFIleSys.indexOf("null") == -1)
+        {
+          pubClientConfig(fw_infoInFIleSys);
+        }
+        else if ((bufferFW_v.length() > 4 || bufferFW_v.indexOf("null") == -1) && (fw_infoInFIleSys.indexOf("null") != -1)) // handle if fw version !null but some key value found null is still pub client config
+        {
+          pubClientConfig(fw_infoInFIleSys);
+        }
+
+        else if ((bufferFW_v.indexOf("null") != -1) && (bufferFW_size > 0))
+        {
+          pubClientConfig(fw_infoInFIleSys);
+        }
+        
+        // Serial.println("#Debug: "+ configOTAFile.readConfigFileOTA());
+        Serial.println(F("# Safety mode GSM shutdown!"));
+        GSM.shutdown();
+        delay(10000);
+        ESP.restart();
+      }
+      else
+      {
+        // pub_UpdateProgress("FAILED","{\"description\":\"something_went_wrong\",\"errordescription\":\""+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+"\"}");
+        pub_UpdateProgress("FAILED","{\"errordescription\":\"something_went_wrong (version. "+ MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+")\"}");
+
+        Serial.println(F("# Update not finished? Something went wrong!"));
+        configOTAFile.saveSuccessOrFail("fail");
+
+        // readFS_pubClientConfig();
+      }
+    }
+    else
+    {
+      String error_des = ERORRdescriptionUpdate();
+      Serial.println("# OTA Fail Error Occurred. Error #: " + error_des+ " # Error Enum {"+String(Update.getError())+"}");
+      // pub_UpdateProgress("FAILED","{\"description\":\""+ error_des +"\",\"errordescription\":\""+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+"\"}");
+      pub_UpdateProgress("FAILED","{\"errordescription\":\""+ error_des +" (version. "+ MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+")\"}");
+      configOTAFile.saveSuccessOrFail("fail");
+
+      // readFS_pubClientConfig();
+    }  
+  delay(5000);
+  ESP.restart();
+}
+
+void hook_FW_download(String topic, uint8_t* payload, unsigned int length)
+{
+  // Serial.println("Debug in HOOK topic: "+String(topic));
+  // Serial.println("Debug in HOOK length: "+String(length));
+  if(topic.indexOf("/firmwaredownload/resp/") != -1)
+  {
+    int index = topic.indexOf("/resp/");
+    String crrnt_part = topic.substring(index+6); //crrnt_part is part start from index 0
+    attr.current_chunk = crrnt_part.toInt();
+    // MAGELLAN_MQTT_device_core::OTA_info.currentChunk = attr.current_chunk+1;
+    Serial.println(F("<--------------------------------"));
+    Serial.println("# <-Firmware current chunk: "+ String(attr.current_chunk+1)+"/"+ String(attr.totalChunk));
+    if(length > 0 && (attr.fw_count_chunk <= attr.totalChunk))
+    {
+      attr.checkTimeout_request_download_fw = false;
+      attr.prv_cb_timeout_millis = millis();
+      updateFirmware(payload, length);
+      attr.fw_count_chunk++;
+      attemp_download_1 = false;
+      attemp_download_2 = false;  
+
+      pub_Download(attr.fw_count_chunk, attr.chunk_size);
+
+      if(!attr.inProcessOTA)
+      {
+        // pub_UpdateProgress("DOWNLOADING","{\"description\":\"Downloading firmware name: "+String(MAGELLAN_MQTT_device_core::OTA_info.firmwareName)+
+        // " size: "+String(MAGELLAN_MQTT_device_core::OTA_info.firmwareTotalSize)+"\"}");
+        pub_UpdateProgress("DOWNLOADING", "{\"description\":\"downloading firmware version: "+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+
+        " size: "+ String(attr.fw_total_size)+"\"}");
+      }
+      attr.inProcessOTA = true;
+      MAGELLAN_MQTT_device_core::OTA_info.inProcessOTA = attr.inProcessOTA;
+    }
+    if(attr.fw_count_chunk == attr.totalChunk)
+    {
+      if(attr.current_size != attr.fw_total_size)
+      {
+        Serial.println(F("#[Warning] Complete Request chunk but lost or incorrect DATA from OTA"));
+        Serial.println(F("#[Warning] Must restart board"));
+        // pub_UpdateProgress("FAILED","{\"description\":\"Complete Request total of chunk but lost or incorrect DATA from OTA\",\"errordescription\":\""+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+"\"}");
+        pub_UpdateProgress("FAILED","{\"errordescription\":\"Complete request total of chunk but lost or incorrect DATA from OTA (version. "+ MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+")\"}");
+        configOTAFile.saveSuccessOrFail("fail");
+
+        // readFS_pubClientConfig();
+
+        delay(3000);
+        ESP.restart();
+      }
+    }
+  }
+}
+
+/////////// Feature OTA function none member inclass //////////////////////
 
 void msgCallback_internalHandler(char * topic, byte* payload, unsigned int length)
 {
@@ -175,7 +716,17 @@ void msgCallback_internalHandler(char * topic, byte* payload, unsigned int lengt
   regisAPI *handleRegisKEYConf = _startRegisConf;
 
   regisAPI *handleRESP = _startRESP;
-
+  //OTA Feature /////////////////
+  if((attr.usingCheckUpdate) && (!attr.inProcessOTA))
+  {
+    checkUpdate(b_topic, _payload);
+  }
+  else if(!attr.usingCheckUpdate && attr.flagAutoOTA)
+  {
+    save_fw_info(b_topic, _payload);
+  }
+  hook_FW_download(b_topic, payload, length);
+  ///////////////////////////////
   char * b_payload = (char *)_payload.c_str(); //payload for advance_cb and endpoint centric
 
   if(b_topic.indexOf("/auth/resp/") != -1)
@@ -400,7 +951,9 @@ void msgCallback_internalHandler(char * topic, byte* payload, unsigned int lengt
       }
       if(handleRegisJSON_CONF_OBJ != NULL)
       {
+        // Serial.println(_payload);
         String buffDocs = deConfig(_payload);
+        // Serial.println(buffDocs);
         JsonObject Docs = deJson(buffDocs);
         handleRegisJSON_CONF_OBJ->conf_obj_callback(Docs);
       }
@@ -581,8 +1134,8 @@ String MAGELLAN_MQTT_device_core::getHostName()
 
 void MAGELLAN_MQTT_device_core::setMQTTBufferSize(uint16_t sizeBuffer)
 {
-  Serial.println(F("# SetBufferSize: "));
-  Serial.println(sizeBuffer);
+  // Serial.println(F("# SetBufferSize: "));
+  // Serial.println(sizeBuffer);
   this->_default_bufferSize = sizeBuffer;
 }
 
@@ -592,7 +1145,7 @@ void MAGELLAN_MQTT_device_core::setAuthMagellan(String _thingIden, String _thing
   if(!(CheckString_isDigit(_thingIden) && CheckString_isDigit(_thingSecret)))
   {
     Serial.print(F("# ERROR Can't connect to Magellan"));
-    Serial.print(F("# Parameter from your setting is invalid \n [thingIdentify]=> "));
+    Serial.print(F("# Parameter from you setting invalid \n [thingIdentify]=> "));
     Serial.print(_thingIden);
     Serial.print(F("   [thingSecret]=> "));
     Serial.println(_thingSecret);
@@ -693,6 +1246,11 @@ boolean MAGELLAN_MQTT_device_core::CheckString_isDouble(String valid_payload)
   return true;
 }
 
+// void MAGELLAN_MQTT_device_core::setCallback(void(callback(char*, byte*, unsigned int)))
+// {
+//   this->client->setCallback(callback);
+// }
+
 void MAGELLAN_MQTT_device_core::setCallback_msgHandle()
 {
   this->client->setCallback(msgCallback_internalHandler);
@@ -715,6 +1273,13 @@ void MAGELLAN_MQTT_device_core::reconnect()
       {   
         Serial.print(F("# Remain Subscribes list\n"));
         attr.triggerRemainSub = true;
+
+        attr.triggerRemainOTA = true;
+        if(!attr.flagAutoOTA)
+        {
+          sub_InfoOTA();
+        }
+
       }
   }
 }
@@ -968,10 +1533,12 @@ void MAGELLAN_MQTT_device_core::beginCustom(String _client_id, boolean builtInSe
     Serial.print(F("# Buffer size from you set over than 8192 set buffer to: "));
     Serial.println();
     this->setBufferSize(_default_OverBufferSize);   
+    attr.calculate_chunkSize = _default_bufferSize/2;
   }
   else
   {
     this->setBufferSize(bufferSize);
+    attr.calculate_chunkSize = bufferSize/2;
   }
   checkConnection();
 
@@ -1109,13 +1676,14 @@ void MAGELLAN_MQTT_device_core::begin(String _client_id, boolean builtInSensor, 
     Serial.print(F("# Buffer size from you set over than 8192 set buffer to: "));
     Serial.println();
     this->setBufferSize(_default_OverBufferSize);   
+    attr.calculate_chunkSize = _default_bufferSize/2;
   }
   else
   {
     this->setBufferSize(bufferSize);
+    attr.calculate_chunkSize = bufferSize/2;
   }
   checkConnection();
-  
 }
 
 boolean MAGELLAN_MQTT_device_core::registerToken()
@@ -1742,9 +2310,19 @@ void MAGELLAN_MQTT_device_core::registerList(func_callback_registerList cb_regis
 {
   if(attr.triggerRemainSub)
   {
-
-    Serial.println(F("# Subscribes List"));
-    cb_regisList();   
+    if(attr.inProcessOTA)
+    {
+      Serial.println(F("# Subscribes List is terminated when Inprocess OTA")); 
+    }
+    else
+    {
+      Serial.println(F("# Subscribes List"));
+      cb_regisList(); 
+      if(!attr.flagAutoOTA)
+      {
+        sub_InfoOTA();
+      }  
+    }
     attr.triggerRemainSub = false;
     Serial.println(F("#============================"));
   }
@@ -1913,6 +2491,266 @@ void MAGELLAN_MQTT_device_core::clearSensorBuffer(JsonDocument &ref_docs)
   Serial.println(F("-------------------------------"));
 }
 
+boolean MAGELLAN_MQTT_device_core::registerInfoOTA()
+{
+  return sub_InfoOTA();
+}
+
+boolean MAGELLAN_MQTT_device_core::unregisterInfoOTA()
+{
+  return unsub_InfoOTA();
+}
+
+boolean MAGELLAN_MQTT_device_core::requestFW_Info()
+{
+  return pub_Info();  
+}
+
+boolean MAGELLAN_MQTT_device_core::registerDownloadOTA()
+{
+  return sub_DownloadOTA();
+}
+
+boolean MAGELLAN_MQTT_device_core::unregisterDownloadOTA()
+{
+  return unsub_DownloadOTA();
+}
+
+boolean MAGELLAN_MQTT_device_core::requestFW_Download(unsigned int fw_chunk, size_t chunk_size)
+{
+  return pub_Download(fw_chunk, chunk_size);  
+}
+
+boolean MAGELLAN_MQTT_device_core::updateProgressOTA(String OTA_state,String description)
+{
+  return pub_UpdateProgress(OTA_state, description);
+}
+
+void MAGELLAN_MQTT_device_core::activeOTA(size_t chunk_size, boolean useChecksum)
+{
+  Serial.println(F("#============================"));
+  Serial.println(F("# Activated OTA"));
+  Update.begin(UPDATE_SIZE_UNKNOWN);
+  attr.using_Checksum = useChecksum;
+  String isC_sum = (attr.using_Checksum == true) ? "ENABLE":"DISABLE";
+  Serial.println(F(" "));
+  Serial.print(isC_sum);
+  Serial.println(F(" Checksum FirmwareOTA"));
+  // Serial.println(*attr.chunk_size);
+  if(chunk_size > 4096)
+  {
+    Serial.print(F("# [Warning] Chunk Size Maximun is 4096 (use Default \""));
+    Serial.print(attr.default_chunk_size);
+    Serial.println(F("\")"));
+    setChunkSize(attr.default_chunk_size);
+  }
+  else{
+    setChunkSize(chunk_size);
+  }
+   configOTAFile.beginFileSystem(true);
+  if(!configOTAFile.checkFileOTA())
+  {
+    configOTAFile.createConfigFileOTA();
+  }
+
+  if(!configOTAFile.checkLastedOTA())
+  {
+    configOTAFile.createLastedOTA();
+    if(configOTAFile.checkFileOTA())
+    {
+      String fw_infoInFIleSys = configOTAFile.readLastedOTA();
+    }
+  }
+  else{
+    String fw_infoInFIleSys; 
+    JsonObject fw_last = configOTAFile.readObjectLastedOTA();
+    int bufferFW_size = fw_last["sizefirmware"];
+
+    fw_last.remove("namefirmware");
+    fw_last.remove("sizefirmware");
+    fw_last.remove("checksumAlgorithm");
+    String bufferFW_v = fw_last["versionfirmware"];
+    fw_last["firmwareVersion"] = bufferFW_v;
+    fw_last.remove("versionfirmware");
+    serializeJson(fw_last, fw_infoInFIleSys);
+    if(fw_infoInFIleSys.indexOf("null") == -1)
+    {
+      this->reportClientConfig(fw_infoInFIleSys);
+    }
+    else if ((bufferFW_v.length() > 4 || bufferFW_v.indexOf("null") == -1) && (fw_infoInFIleSys.indexOf("null") != -1)) // handle if fw version !null but some key value found null is still pub client config
+    {
+      this->reportClientConfig(fw_infoInFIleSys);
+    }
+    else if ((bufferFW_v.indexOf("null") != -1) && (bufferFW_size > 0))
+    {
+      this->reportClientConfig(fw_infoInFIleSys);
+    }
+  }
+}
+void MAGELLAN_MQTT_device_core::setChecksum(String md5Checksum)
+{
+  Serial.println("# Set Checksum md5: "+md5Checksum+" Status:"+(Update.setMD5(md5Checksum.c_str()) == true? " Success":" Fail"));
+}
+
+void MAGELLAN_MQTT_device_core::setChunkSize(size_t chunkSize)
+{
+  attr.chunk_size = chunkSize;
+  Serial.println("# Set Chunk size: "+String(attr.chunk_size));
+}
+
+void checkTimeoutReq_fw_download()
+{
+  if(attr.checkTimeout_request_download_fw)
+  {
+    unsigned long differentTime = millis() - attr.prv_cb_timeout_millis;
+    if(differentTime > 60000 && !attemp_download_1)
+    {
+      Serial.println("#Attemp resume download 1 after checktimeout 1 minute");
+      pub_Download(attr.fw_count_chunk, attr.chunk_size);
+      attemp_download_1 = true;
+    }
+    if(differentTime > 120000 && !attemp_download_2)
+    {
+      Serial.println("#Attemp resume download 2 after checktimeout 2 minute");
+      pub_Download(attr.fw_count_chunk, attr.chunk_size);
+      attemp_download_2 = true;
+    }
+    if(differentTime > attr.timeout_req_download_fw)
+    {
+      // pub_UpdateProgress("FAILED","{\"description\":\"Timeout from request firmware download\",\"errordescription\":\""+MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+"\"}");
+      pub_UpdateProgress("FAILED","{\"errordescription\":\"Timeout from request firmware download (version. "+ MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion+")\"}");
+      configOTAFile.saveSuccessOrFail("fail");
+
+      // readFS_pubClientConfig();
+
+      Serial.println("#device must restart timeout from request firmware dowload "+String(attr.timeout_req_download_fw/60000)+" minute");
+      delay(5000);
+      ESP.restart();
+    }
+    // Serial.println("Counting Timeout: "+String(diferentTime/1000));
+  }
+  else{
+    attr.prv_cb_timeout_millis = millis();
+  }
+}
+
+unsigned long prv_mills_usingCheckOTA = 0;
+void checkTimeoutCheckUpdate()
+{
+  if(attr.usingCheckUpdate)
+  {
+    unsigned long differentTime = millis() - prv_mills_usingCheckOTA;
+    if(differentTime > 15000)
+    {
+      attr.usingCheckUpdate = false;
+    }
+  }
+  else if(!attr.usingCheckUpdate)
+  {
+    prv_mills_usingCheckOTA = millis();
+  }
+}
+
+boolean remind_unsub_when_inProcessOTA = false;
+unsigned long prv_mills_pubinfo = 0;
+void MAGELLAN_MQTT_device_core::handleOTA(boolean OTA_after_getInfo)
+{
+  checkTimeoutReq_fw_download();
+  checkTimeoutCheckUpdate();
+  if(attr.triggerRemainOTA)
+  {
+
+    Serial.println(F("# Active handleOTA"));
+    registerInfoOTA();
+    if(attr.flagAutoOTA)
+      registerDownloadOTA();
+    Serial.println(F("#============================"));
+
+    if(attr.inProcessOTA) //if get fw in hook fw will auto count and request dowload fw
+    {
+      attr.flag_remain_ota = true;
+      attr.remain_ota_fw_info_match = false;
+
+      if(!attr.remain_ota_fw_info_match)
+      {
+        if(millis() - prv_mills_pubinfo > 5000)
+        {
+          pub_Info();
+          prv_mills_pubinfo = millis();
+        }       
+      }
+      else if(attr.remain_ota_fw_info_match) // remain get firmware
+      {
+        pub_Download(attr.fw_count_chunk, attr.chunk_size);
+      }
+    }
+    if(attr.startReqDownloadOTA && !attr.inProcessOTA) //if get part 0 fail but start ota still work when reconnect
+    {
+      pub_Download(attr.fw_count_chunk, attr.chunk_size);
+    }
+    attr.triggerRemainOTA = false;
+  }
+  if((attr.fw_total_size > 0) && !(attr.remind_Event_GET_FW_infoOTA))
+  {
+    // Serial.println(F("======================="));
+    // Serial.println(F("# Firmware OTA Information Available #"));
+    // Serial.println("  ->Firmware Name: "+MAGELLAN_MQTT_device_core::OTA_info.fw_name);
+    // Serial.println("  ->Firmware total size: "+String(MAGELLAN_MQTT_device_core::OTA_info.fw_totalSize));
+    // Serial.println("  ->Firmware version: "+MAGELLAN_MQTT_device_core::OTA_info.fw_version);
+    // Serial.println("  ->Firmware checksum Algorithm: "+MAGELLAN_MQTT_device_core::OTA_info.algorithm_check_sum);
+    // Serial.println("  ->Firmware checksum: "+MAGELLAN_MQTT_device_core::OTA_info.check_sum);
+    // Serial.println(F("======================="));
+    if(attr.using_Checksum && !attr.isFirmwareUptodate)
+    {
+      if(MAGELLAN_MQTT_device_core::OTA_info.checksumAlgorithm == "md5" || MAGELLAN_MQTT_device_core::OTA_info.checksumAlgorithm == "MD5")
+        setChecksum(MAGELLAN_MQTT_device_core::OTA_info.checksum);
+      else{
+        Serial.println(F("#[Warning] Can't set checksum because algorithm checksum is not \"md5\""));
+        Serial.println(F("#[Warning] But OTA Process still working without checksum "));
+        attr.using_Checksum = false;
+      }
+    }
+    if(OTA_after_getInfo && !attr.isFirmwareUptodate) //auto request OTA after get fw information
+    {
+      pub_Download(0, attr.chunk_size);
+    }
+    attr.remind_Event_GET_FW_infoOTA = true;
+  }
+  if(attr.inProcessOTA && ! remind_unsub_when_inProcessOTA)
+  {
+    Serial.println(F("================================================="));
+    Serial.println(F("# Inprocess OTA terminate other incoming message"));
+    Serial.println(F("# Unsubscribe unuse function"));
+    if(attr.ctrl_regis_key || attr.ctrl_regis_pta)
+    {
+      unregisterControl(PLAINTEXT);
+    }
+    if(attr.ctrl_jsonOBJ || attr.ctrl_regis_json)
+    {
+      unregisterControl(JSON);
+    }
+    if(attr.conf_regis_key || attr.conf_regis_pta)
+    {
+      unregisterConfig(PLAINTEXT);
+    }
+    if(attr.conf_jsonOBJ || attr.conf_regis_json)
+    {
+      unregisterConfig(JSON);
+    }
+    if(attr.resp_regis)
+    {
+      unregisterResponseHeartbeat(PLAINTEXT);
+      unregisterResponseHeartbeat(JSON);
+      unregisterResponseReport(PLAINTEXT);
+      unregisterResponseReport(JSON);
+      unregisterResponseReportTimestamp();
+      unregisterTimestamp(PLAINTEXT);
+      unregisterTimestamp(JSON);
+    }
+    remind_unsub_when_inProcessOTA = true;
+    Serial.println(F("================================================="));
+  }
+}
 ////////////////// Unsub ///////////
 boolean MAGELLAN_MQTT_device_core::unregisterControl(int format){
   String topic;
@@ -2050,5 +2888,5 @@ boolean MAGELLAN_MQTT_device_core::unregisterResponseHeartbeat(int format){
   Serial.println("# Response type: "+ respType);
   return Sub_status;
 }
-////////////////// /Unsub //////////
+////////////////// Unsub //////////
 

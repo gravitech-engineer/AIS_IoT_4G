@@ -20,6 +20,7 @@ void setup()
       Serial.println("LED ON");
       magel.sensor.add("Lamp1", digitalRead(LED_E15));
       magel.control.ACK(magel.sensor.toJSONString()); //ACKNOWLEDGE control to magellan
+      magel.sensor.clear();
     }
     else if (control == "{\"Lamp1\":0}")
     {
@@ -27,6 +28,7 @@ void setup()
       Serial.println("LED OFF");
       magel.sensor.add("Lamp1", digitalRead(LED_E15));
       magel.control.ACK(magel.sensor.toJSONString()); //ACKNOWLEDGE control to magellan
+      magel.sensor.clear();
     }  
     else
     {
@@ -48,6 +50,7 @@ void setup()
   //         Serial.println("LED ON");
   //         magel.sensor.add("Lamp1", digitalRead(LED_E15));
   //         magel.control.ACK(magel.sensor.toJSONString()); //ACKNOWLEDGE control to magellan
+  //         magel.sensor.clear();
   //       }
   //       else if (Lamp1 == "0")
   //       {
@@ -55,6 +58,7 @@ void setup()
   //         Serial.println("LED OFF");
   //         magel.sensor.add("Lamp1", digitalRead(LED_E15));
   //         magel.control.ACK(magel.sensor.toJSONString()); //ACKNOWLEDGE control to magellan
+  //         magel.sensor.clear();
   //       }
   //   }
   // });
@@ -69,7 +73,7 @@ void loop()
   magel.subscribes([](){
     magel.subscribe.control(); // subscribe server config content type JSON
   });
-  magel.interval(10,[](){ //time interval function inside every 10 second
+  magel.interval(10,[](){ //time interval function inside every 10000 millis
 
   });
 }

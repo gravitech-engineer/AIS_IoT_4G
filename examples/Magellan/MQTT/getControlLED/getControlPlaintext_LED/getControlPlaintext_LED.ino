@@ -63,7 +63,7 @@ void loop()
   magel.subscribes([](){
     magel.subscribe.control(PLAINTEXT); // subscribe server config content type JSON
   });
-  magel.interval(10,[](){ //time interval function inside every 10 second
+  magel.interval(10,[](){ //time interval function inside every 10000 millis
 
   });
 }

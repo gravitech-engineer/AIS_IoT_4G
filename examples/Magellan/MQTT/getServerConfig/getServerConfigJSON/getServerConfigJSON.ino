@@ -31,7 +31,7 @@ void loop()
   magel.subscribes([](){
     magel.subscribe.serverConfig(); // subscribe server config content type JSON
   });
-  magel.interval(10,[](){ //time interval function inside every 10 second
+  magel.interval(10,[](){ //time interval function inside every 10000 millis
     magel.serverConfig.request(); // request server config content type JSON
   });
 }

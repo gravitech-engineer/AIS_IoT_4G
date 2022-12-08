@@ -21,48 +21,42 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-Magellan_4GBoard v2.5.3 AIS 4G Board.
+Magellan_4GBoard v2.6.1 AIS 4G Board.
 support SIMCOM SIM7600E(AIS 4G Board)
  
 Author:(POC Device Magellan team)      
 Create Date: 25 April 2022. 
-Modified: 15 september 2022.
+Modified: 1 december 2022.
+Released for private usage.
 */
 #ifndef MAGELLAN_SIM7600E_MQTT_h
 #define MAGELLAN_SIM7600E_MQTT_h
 
 #include <Arduino.h>
 #include "utils/MAGELLAN_MQTT_device_core.h"
+#include <Update.h>
+
+struct Setting{
+  String ThingIdentifier = "null"; //ICCID, ThingKey, ThingIdentifier
+  String ThingSecret = "null"; //IMSI, ThingSecret
+  String IMEI = "null";
+  size_t clientBufferSize = defaultBuffer;
+  boolean builtInSensor = true;
+  String endpoint = _host_production;
+};
+
 class MAGELLAN_SIM7600E_MQTT: private MAGELLAN_MQTT_device_core
 {
 private:
-  struct Unsubscribe
-  {
-    boolean control(unsigned int format = JSON);
-    boolean control(String controlKey);
-    boolean serverConfig(unsigned int format = JSON);
-    boolean serverConfig(String configKey);
-    boolean getServerTime(unsigned int format = JSON);
-    struct Report
-    {
-      boolean response(unsigned int format = JSON);
-    }report;
-    struct ReportWithTimestamp
-    {
-      boolean response();
-    }reportWithTimestamp;
-    struct Heartbeat
-    {
-      boolean response(unsigned int format = JSON);
-    }heartbeat;
-  }unsubscribe;
 
 public:
   MAGELLAN_SIM7600E_MQTT();
   MAGELLAN_SIM7600E_MQTT(Client& client);
+  void begin(Setting _setting);
   void begin(uint16_t bufferSize = 1024, boolean builtInSensor = true);
   void begin(String _thingIden, String _thingSencret, String _imei, unsigned int Zone = Production, uint16_t bufferSize = 1024, boolean builtinSensor = true);
   void beginCustom(String _client_id, boolean buildinSensor = true, String _host = "magellan.ais.co.th", int _port = mgPort, uint16_t bufferSize = 1024);
+  void beginCustom(String _thingIden, String _thingSencret, String _imei, String _host = "magellan.ais.co.th", int _port = mgPort, uint16_t bufferSize = 1024, boolean builtinSensor = true);
   void loop();
   void heartbeat(unsigned int second);
   void subscribes(func_callback_registerList cb_subscribe_list);
@@ -79,6 +73,7 @@ public:
   void getServerConfigJSON(conf_JsonOBJ_handleCallback jsonOBJ_cb);
   void getResponse(unsigned int eventResponse, resp_callback resp_cb);
   String deserializeControl(String payload);
+  boolean isConnected();
   struct Sensor
   {
     public:
@@ -179,6 +174,55 @@ public:
 
   }subscribe;
 
+  struct Unsubscribe
+  {
+    boolean control(unsigned int format = JSON);
+    boolean control(String controlKey);
+    boolean serverConfig(unsigned int format = JSON);
+    boolean serverConfig(String configKey);
+    boolean getServerTime(unsigned int format = JSON);
+    struct Report
+    {
+      boolean response(unsigned int format = JSON);
+    }report;
+    struct ReportWithTimestamp
+    {
+      boolean response();
+    }reportWithTimestamp;
+    struct Heartbeat
+    {
+      boolean response(unsigned int format = JSON);
+    }heartbeat;
+
+  }unsubscribe;
+  struct OnTheAir
+  {
+    public:
+      int checkUpdate();
+      OTA_INFO utility();
+      void autoUpdate(boolean flagSetAuto = true);
+      boolean getAutoUpdate();
+      void executeUpdate();
+      String readDeviceInfo();
+    private:
+      boolean getFirmwareInfo();
+      void begin();
+      boolean start();   
+      void handle(boolean OTA_after_getInfo = true);
+      void setChecksum(String md5Checksum);
+      boolean updateProgress(String OTA_state, String description);
+      boolean downloadFirmware(unsigned int fw_part = 0, size_t part_size = 0);     
+      struct Subscribe{
+          boolean firmwareInfo();
+          boolean firmwareDownload();
+      }subscribe;
+      struct Unsubscribe{
+          boolean firmwareInfo();
+          boolean firmwareDownload();
+      }unsubscribe;
+
+  }OTA; 
+
   struct GPSmodule
   {
     boolean available();
@@ -188,7 +232,7 @@ public:
     float readSpeed();
     float readCourse();
     String readLocation();
-    unsigned long getUnixTime();
+    unsigned long getUnixTime(); //*
   }gps;
   struct BuiltinSensor
   {
@@ -199,8 +243,17 @@ public:
   {
     public:
       void begin(uint16_t setBufferSize = 1024);
+      void begin(Setting _setting);
   }centric;
+
+  struct Utility{
+    String toDateTimeString(unsigned long unixtTime, int timeZone);
+    String toUniversalTime(unsigned long unixtTime, int timeZone);
+    unsigned long toUnix(tm time_);
+    tm convertUnix(unsigned long unix, int timeZone);   
+  }utils;
 protected:
   static MAGELLAN_MQTT_device_core *coreMQTT;
 };
+extern Setting setting;
 #endif

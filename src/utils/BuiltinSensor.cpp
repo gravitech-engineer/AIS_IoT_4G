@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include "./BuiltinSensor.h"
 
-
 int cnt_initGPS = 0;
 int timeoutInitGPS = 300; // 30 sec 300 * 100 ms = 3000 ms
 
@@ -197,7 +196,7 @@ boolean BuiltinSensor::GPSavailable()
         GPS_state = GPS.available();
         // if(!GPS_state)
         // {
-            // Serial.println(F("# GPS not available please check signal or antenna GPS connect to board"));
+        //     // Serial.println(F("# GPS not available please check signal or antenna GPS connect to board"));
         // }
     }
     return GPS_state;

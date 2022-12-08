@@ -22,7 +22,7 @@ void loop()
   {
     magel.subscribe.report.response(); // optional register for get Resp report
   });
-  magel.interval(10,[]() //time interval function inside every 10 second
+  magel.interval(10,[]() 
   {
     String payload;
     unsigned int Positive_Number = 1234;

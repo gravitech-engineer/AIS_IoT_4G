@@ -23,6 +23,7 @@ class BuiltinSensor: private utility
         void gps_begin();
         int local_timeZone = 7;
         info_gps getGPS_info();
+        // tm convertUnix(unsigned long unix, int timeZone = 7);
     public:
         void begin();
         boolean GPSavailable();
@@ -35,9 +36,7 @@ class BuiltinSensor: private utility
         float readTemperature();
         float readHumidity();
         String readLocation();
-        
-        unsigned long getUnixTime(); //*
-        
+        unsigned long getUnixTime();
 };
 
 extern BuiltinSensor mySensor;

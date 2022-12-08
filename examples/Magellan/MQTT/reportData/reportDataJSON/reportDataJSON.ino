@@ -21,21 +21,22 @@ void loop()
   {
     magel.subscribe.report.response(); // optional register for get Resp report
   });
-  magel.interval(10, [](){ //time interval function inside every 10 second
+  magel.interval(10, [](){
     //{1.} auto buildJSON and reportJSON
     magel.sensor.add("Location", "13.777864,100.544068");
     magel.sensor.add("random", (int)random(0, 100));
     magel.sensor.add("temperature", (int)random(25, 34));
     magel.sensor.report();  // this function serializeJson from addSensor to Json format and report
 
-    //{2.} auto buildJSON but manaul report
+    //{2.} auto buildJSON but manual report
     magel.sensor.add("GPS", "13.777864,100.544068");
     magel.sensor.add("random", (int)random(0, 100));
     magel.sensor.add("Humidity", (int)random(0, 100));
     String payload = magel.sensor.toJSONString();
+    magel.sensor.clear();
     magel.report.send(payload);
 
-    //{3.} manaul report
+    //{3.} manual report
     magel.report.send("{\"hello\":\"world\"}");
   });
 }
