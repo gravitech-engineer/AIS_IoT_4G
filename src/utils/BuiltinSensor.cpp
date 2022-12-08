@@ -194,10 +194,10 @@ boolean BuiltinSensor::GPSavailable()
     }
     else{
         GPS_state = GPS.available();
-        if(!GPS_state)
-        {
-            // Serial.println(F("# GPS not available please check signal or antenna GPS connect to board"));
-        }
+        // if(!GPS_state)
+        // {
+        //     // Serial.println(F("# GPS not available please check signal or antenna GPS connect to board"));
+        // }
     }
     return GPS_state;
 }
