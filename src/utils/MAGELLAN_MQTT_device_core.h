@@ -26,7 +26,7 @@ support SIMCOM SIM7600E(AIS 4G Board)
  
 Author:(POC Device Magellan team)      
 Create Date: 25 April 2022. 
-Modified: 1 december 2022.
+Modified: 9 december 2022.
 Released for private usage.
 */
 #ifndef MAGELLAN_MQTT_DEVICE_CORE_h
@@ -44,7 +44,7 @@ Released for private usage.
 #include "BuiltinSensor.h"
 
 // #define Dev_version "v2.6.1"
-#define lib_version "v1.1.0"
+#define lib_version "v1.1.1"
 
 #define PLAINTEXT 0 //Plaintext
 #define JSON 1 //Json
