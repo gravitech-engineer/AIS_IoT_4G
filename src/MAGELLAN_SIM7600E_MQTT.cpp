@@ -26,7 +26,7 @@ support SIMCOM SIM7600E(AIS 4G Board)
  
 Author:(POC Device Magellan team)      
 Create Date: 25 April 2022. 
-Modified: 1 december 2022.
+Modified: 9 december 2022.
 Released for private usage.
 */
 
@@ -407,7 +407,7 @@ String MAGELLAN_SIM7600E_MQTT::Information::getICCID()
 
 String MAGELLAN_SIM7600E_MQTT::Information::getIMSI()
 {
-  return coreMQTT->getIMEI();
+  return coreMQTT->getIMSI();
 }
 
 String MAGELLAN_SIM7600E_MQTT::Information::getIMEI()
