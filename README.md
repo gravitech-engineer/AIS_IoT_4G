@@ -391,10 +391,10 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
     | event.CODE | success code such as 20000 or 40400 etc |
 
  * `Setting (Global Variables)`
-   * `magel.setting.ThingIdentifier` ใช้เป็นตัวแปรสำหรับกำหนดค่า ThingIdentifier หรือ ICCID ของอุปกรณ์
-   * `magel.setting.ThingSecret` ใช้เป็นตัวแปรสำหรับกำหนดค่า ThingSecret หรือ IMSI ของอุปกรณ์
-   * `magel.setting.endpoint` ใช้เป็นตัวแปรสำหรับกำหนดค่า IP หรือ URL Path ปลายทางที่ต้องการให้อุปกรณ์เชื่อมต่อ
-   * `magel.setting.clientBufferSize` ใช้เป็นตัวแปรสำหรับกำหนดค่า clientBufferSize ของอุปกรณ์ โดยสามารถกำหนดขนาดตามที่ต้องการหรือใช้ค่าตัวแปร Default ที่กำหนดให้ โดยมีดังนี้
+   * `setting.ThingIdentifier` ใช้เป็นตัวแปรสำหรับกำหนดค่า ThingIdentifier หรือ ICCID ของอุปกรณ์
+   * `setting.ThingSecret` ใช้เป็นตัวแปรสำหรับกำหนดค่า ThingSecret หรือ IMSI ของอุปกรณ์
+   * `setting.endpoint` ใช้เป็นตัวแปรสำหรับกำหนดค่า IP หรือ URL Path ปลายทางที่ต้องการให้อุปกรณ์เชื่อมต่อ
+   * `setting.clientBufferSize` ใช้เป็นตัวแปรสำหรับกำหนดค่า clientBufferSize ของอุปกรณ์ โดยสามารถกำหนดขนาดตามที่ต้องการหรือใช้ค่าตัวแปร Default ที่กำหนดให้ โดยมีดังนี้
 
     [  ตารางแสดงค่าตัวแปร Default Setting clientBufferSize ]
     | ตัวแปร | Default value | การเรียกใช้ตัวแปร |
