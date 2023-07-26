@@ -829,7 +829,7 @@ String MAGELLAN_SIM7600E_MQTT::Information::getICCID()
 
 String MAGELLAN_SIM7600E_MQTT::Information::getIMSI()
 {
-  return coreMQTT->getIMEI();
+  return coreMQTT->getIMSI();
 }
 
 String MAGELLAN_SIM7600E_MQTT::Information::getIMEI()
