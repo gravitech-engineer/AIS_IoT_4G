@@ -38,7 +38,7 @@ AIS 4G Board คือบอร์ดพัฒนาที่สามารถ�
    * [RS485.h](#include-rs485h)
    * [AzureIoTHub.h](#include-azureiothubh)
    * [AzureIoTCentral.h](#include-azureiotcentralh)
-   * [MAGELLAN_SIM7600E_MQTT.h](#include-magellan_sim7600e_mqtth)
+   * [MAGELLAN_SIM7600E_MQTT.h](#SDK_MAGELLAN)
  * [ศึกษาเพิ่มเติม](#ศึกษาเพิ่มเติม)
    * [เอกสารการใช้งาน](#เอกสารการใช้งาน)
    * [ตัวอย่างโค้ดโปรแกรม](#ตัวอย่างโค้ดโปรแกรม)
@@ -235,7 +235,6 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 ### `#include <SHT40.h>`
 
 ใช้อ่านค่าเซ็นเซอร์วัดอุณหภูมิและความชื้นบนบอร์ด AIS 4G Board
-
  * `SHT40.begin()` เริ่มต้นใช้งานเซ็นเซอร์วัดอุณหภูมิและความชื้น
  * `SHT40.readTemperature()` อ่านค่าอุณหภูมิในหน่วยองศาเซลเซียส
  * `SHT40.readHumidity()` อ่านค่าความชื้นในหน่วย %RH
@@ -276,31 +275,79 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 ### `#include <AzureIoTCentral.h>`
 
 ใช้เชื่อมต่อ รับ-ส่งข้อมูลกับ Azure IoT Central มีคำสั่งเหมือนกับ `AzureIoTHub.h` ทุกประการ ยกเว้นตอนสร้างออปเจค ให้สร้างโดยใช้คำสั่ง `AzureIoTCentral iot;` แทน
+ <a name="SDK_MAGELLAN"></a>
 
+![Library Version](https://img.shields.io/badge/SDK_Magellan_4G_Board_Version-1.2.0-blue)
 ### `#include <MAGELLAN_SIM7600E_MQTT.h>`
 
 ใช้เชื่อมต่อ รับ-ส่งข้อมูลกับ Magellan Platform ด้วยโปรโตคอล MQTT (Message Queuing Telemetry Transport)
+ <a name="builtinSensor"></a>
+ * `setting (Global Object Variables)`
+   * `setting.ThingIdentifier` ใช้เป็นตัวแปรสำหรับกำหนดค่า ThingIdentifier 
+   * `setting.ThingSecret` ใช้เป็นตัวแปรสำหรับกำหนดค่า ThingSecret 
+   * `setting.endpoint` ใช้เป็นตัวแปรสำหรับกำหนดค่า IP หรือ URL Path ปลายทางที่ต้องการให้อุปกรณ์เชื่อมต่อ
+   * `setting.clientBufferSize` ใช้เป็นตัวแปรสำหรับกำหนดค่า clientBufferSize ของอุปกรณ์ โดยสามารถกำหนดขนาดตามที่ต้องการหรือใช้ค่าตัวแปร Default ที่กำหนดให้ 
+   * `setting.builtInSensor` ใช้เป็นตัวแปรสำหรับกำหนดค่า เปิดใช้งาน Sensor builtin บนตัวบอร์ด AIS 4G board 
 
  * `MAGELLAN_SIM7600E_MQTT  magel;` เริ่มต้นใช้งานไลบรารี Magellan Platform สร้างออปเจค magel
  * `Begin`
    * `magel.begin()` เริ่มต้นใช้งาน AIS 4G Baoard และตั้งค่าการเชื่อมต่อ Magellan Platform
    * `magel.centric.begin()` เริ่มต้นใช้งาน AIS 4G Baoard และตั้งค่าการเชื่อมต่อ Magellan Platform โดยมีการตรวจสอบการลงทะเบียนของอุปกรณ์ผ่านตัวกลาง 
- * `Loop` 
+   * `magel.begin(setting)` เริ่มต้นใช้งาน  และตั้งค่าการเชื่อมต่อ Magellan Platform ตามที่กำหนดใน Setting (Global Object Variables)
+   * `magel.centric.begin(setting)` เริ่มต้นใช้งาน AIS 4G Baoard และตั้งค่าการเชื่อมต่อ Magellan Platform โดยมีการตรวจสอบการลงทะเบียนของอุปกรณ์ผ่านตัวกลาง  ตามที่กำหนดใน Setting (Global Object Variables)
+ * `Loop handle message MQTT` 
    * `magel.loop()` ใช้ทำให้คำสั่งต่าง ๆ สามารถทำงานได้อย่างต่อเนื่องในระหว่างการเชื่อมต่อกับ Magellan Platform จำเป็นต้องถูกเรียกใช้
- * `Info` 
-   * `magel.Info.getBoardInfo()` ใช้อ่านหมายเลข ICCID, IMSI และ IMEI ของโมดูล
-   * `magel.Info.getICCID()` ใช้อ่านหมายเลข ICCID
-   * `magel.Info.getIMSI()` ใช้อ่านหมายเลข IMSI
-   * `magel.Info.getIMEI()` ใช้อ่านหมายเลข IMEI
+ 
+ * `Information (Info)` 
+   * `magel.Info.getBoardInfo()` ใช้อ่านหมายเลข Thing Identifier, Thing Secret ของโมดูลที่ Library ได้ทำการ Generate Thing Key ให้
+   * `magel.Info.getThingIdentifier()` ใช้อ่านหมายเลข Thing Identifier
+   * `magel.Info.getThingSecret()` ใช้อ่านหมายเลข Thing Secret
    * `magel.Info.getThingToken()` ใช้อ่าน Thing Token
    * `magel.Info.getHostName()` ใช้อ่าน Host Name บนอุปกรณ์ที่ทำการเชื่อมต่ออยู่
- * `Subscribes` 
-   * `magel.subscribes.([](){ Function Register Subscribe Here })` ใช้ Subscribe Topic หรือ Subscribe Function ที่อยู่ภายใน Function subscribes ให้อัตโนมัติเมื่ออุปกรณ์สามารถเชื่อมต่อ Magellan Platform ได้
- * `Interval` 
-   * `magel.interval(unsigned int second, []() { function here })` ใช้กำหนดช่วงเวลาให้ Function ที่ประกาศภายใน Interval ทำงานในแต่ละรอบโดยมีหน่วยเป็น Second
+
+ * `Subscribes (lists of subscribe)` 
+   * `magel.subscribes.([](){ Function Register Subscribe Here })` ใช้ Subscribe Topic หรือ Subscribe Function ภายใน Function subscribes นี้เมื่อมีการ connect หรือ reconnect ตัว function นี้จะ triger function ที่บรรจุไว้ภายในให้อัตโนมัติให้อัตโนมัติเมื่ออุปกรณ์สามารถเชื่อมต่อ Magellan Platform ได้
+ # วิธีใช้งาน Subscribes
+```cpp
+   void loop()
+   {
+     magel.loop();
+     magel.subscribes([](){ //* lambda function
+       magel.subscribe.control();
+       magel.subscribe.report.response();
+       Serial.println("Subscribe list!!!");
+       /* subscribe something or doing something at once after connect/reconnect */
+     });
+     /* do something */
+   }
+```
+# หรือ
+```cpp
+   void listSubscribe(){
+      magel.subscribe.control();
+      magel.subscribe.report.response();
+      Serial.println("Subscribe list!!!");
+   }
+
+   void loop()
+   {
+     magel.loop();
+     magel.subscribes(listSubscribe);
+     /* do something */
+   }
+```
+ 
+ * `Interval timer` 
+   * `magel.interval(unsigned int second, []() { function here })` ใช้กำหนดช่วงเวลาให้ Function ที่ประกาศภายใน Interval ทำงานในแต่ละรอบโดยมีหน่วยเป็น Second   
+>ℹ️ Information`Function "Interval" เป็น Function optional เท่านั้น สามารถใช้ function timer ทดแทนได้`
+
+ * `Check Connection` 
+   * `magel.isConnected()` ใช้ในการตรวจสอบสถานะการเชื่อมต่อกับ Magellan Platform โดย true = Connected และ false = Not Connected
+ 
  * `BuiltinSensor` 
    * `magel.builtinSensor.readTemperature()` ใช้อ่านค่าอุณหภูมิจากเซนเซอร์
    * `magel.builtinSensor.readHumidity()` ใช้อ่านค่าความชื้นจากเซนเซอร์
+>ℹ️ Information`หากต้องการปิดหรือเปิดใช้งาน Builtin Sensor สามารถตั้งได้ในส่วนนี้` [setting.builtInSensor](#builtinSensor) `โดย default ถูกเปิดใช้งานไว้อยู่แล้ว`
  * `GPS` 
    * `magel.gps.avalible()` ใช้ตรวจสอบสถานะการจับสัญญาณ GNSS (จับสัญญาณได้/ไม่สามารถจับสัญญาณได้)
    * `magel.gps.readLattitude()` ใช้อ่านค่าละติจูด
@@ -310,6 +357,63 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * `magel.gps.readCourse()` ใช้อ่านค่ามุมองศาของการเคลื่อนที่่
    * `magel.gps.readLocation()` ใช้อ่านค่าละติจูด และค่าลองจิจูด
    * `magel.getUnixTime()` ใช้อ่านค่าเวลา Unix (Timestamp) จาก GPS
+ 
+ * `Report` 
+   * `magel.subscribe.report.response()` ใช้ในการ Subscribe Response จากการส่งข้อมูลเซนเซอร์ในรูปแบบ JSON
+   * `magel.report.send(sensors)` ใช้ส่งข้อมูลเซนเซอร์ในรูปแบบ JSON 
+   * `magel.subscribe.report.response(PLAINTEXT)` ใช้ในการ Subscribe Response ของการส่งข้อมูลเซนเซอร์ในรูปแบบ Plain Text
+   * `magel.report.send(String reportKey, String reportValue)` ใช้ส่งค่าเซนเซอร์ในรูปแบบ Plain Text
+   * `magel.subscribe.reportWithTimestamp.response();` ใช้ในการ Subscribe Response การส่งข้อมูลเซนเซอร์ในรูปแบบ JSON พร้อมค่า Timestamp
+   * `magel.report.send(Int UNIXtimestamp, String sensors);` ใช้ส่งข้อมูลเซนเซอร์ในรูปแบบ JSON พร้อมค่า Timestamp ในรูปแบบ UNIXTS (UnixTimestamp) ไปยัง Magellan Platform
+ 
+ * `Report with message id` 
+   * `magel.subscribe.report.response()` ใช้ในการ Subscribe Response จากการส่งข้อมูลเซนเซอร์ในรูปแบบ JSON
+   * `magel.report.send(String sensors, int msgId);` ใช้ส่งข้อมูลเซนเซอร์ในรูปแบบ JSON ด้วย manual MessageId  
+   * `magel.subscribe.report.response(PLAINTEXT)` ใช้ในการ Subscribe Response ของการส่งข้อมูลเซนเซอร์ในรูปแบบ Plain Text
+   * `magel.report.send(String reportKey, String reportValue, int msgId)` ใช้ส่งค่าเซนเซอร์ในรูปแบบ Plain Text ด้วย manual MessageId  
+   * 🆕`magel.report.send(String sensors, RetransmitSetting &retransSetting)` ใช้ส่งค่าเซนเซอร์ในรูปแบบ JSON ด้วย RetransmitSetting
+   * 🆕`magel.report.send(String reportKey, String reportValue, RetransmitSetting &retransSetting)` ใช้ส่งค่าเซนเซอร์ในรูปแบบ Plain Text ด้วย RetransmitSetting
+
+<a name="retransmitStructor"></a>
+* 🆕`ResultReport` [`Properties variable inside struct ResultReport`]
+  * `statusReport` boolean สำหรับ check publish MQTT Status
+  * `msgId` MessageId default: -1 เมื่อไม่มี MsgId 
+
+* 🆕`RetransmitSetting` [`Properties function inside struct RetransmitSetting`]
+   * `.option(bool enabled, unsigned int repeat, unsigned int duration, int msgId)`
+   * `.setEnabled(bool enabled)`
+   * `.setMsgId(int msgId)`
+   * `.setRepeat(unsigned int repeat)`
+   * `.setDuration(unsigned int duration)`
+   * `.generateMsgId()`
+
+>⚠️ Warning`หากมีการเปิดใช้งาน enabled retransmit ด้วย setEnabled จะมีการ report จนกว่าจะได้ Response, msgId โดยทุกๆ duration และ repeat ที่ตั้งค่าไว้ซึ่งจะใช้เวลาในการทำงาน เนื่องจากต้องรอการตอบกลับ ทั้งนี้ขึ้นอยู่กับคุณภาพของสัญญาณของ network connection ของอุปกรณ์แต่สามารถมั่นใจได้ว่า message ของที่ส่งไปถึงหรือไม่ หรือในกรณีผิดพลาดสามารถ track ได้จากจาก`[Status code](https://magellan.ais.co.th/api-document/3/3) 
+
+# วิธีใช้งาน Report with message id ด้วย RetransmitSetting [เพิ่มเติม](#retransmitStructor)
+```cpp
+   void loop()
+   {
+     magel.loop();
+     magel.subscribes([](){
+       magel.subscribe.report.response(); //if using MessageId please subscribe response report to check status and MessageId is acepted from platform.
+     });
+     magel.interval(15, [](){
+       RetransmitSetting settingReport; //decleare object variable for setting report
+       ResultReport result; //decleare object variable for receive result report
+       settingReport.setEnabled(true); //true: retransmit / false: report with MsgId only
+       settingReport.setRepeat(5); //default: 2 attempt *retransmit max 2 time to cancel attempt
+       settingReport.setDuration(7); //default: 5 sec. delay wait duration every retransmit
+       settingReport.generateMsgId(); //optional: regenerateMsgId if manual using ".setMsgId(msgId)"
+       result = magel.report.send("{\"hello\":\"magellan\"}", settingReport);
+       Serial.print("[MsgId report]: ");
+       Serial.println(result.msgId);
+       Serial.print("[Status report]: ");
+       Serial.println((result.statusReport)? "SUCCESS" : "FAIL");
+     });
+     /* do something */
+   }
+```
+
  * `Sensor` 
    * `magel.sensor.add(sensorKey, sensorValue)` ใช้เพิ่มข้อมูลเซนเซอร์ โดยเก็บไว้ที่ JSONBuffer ของ Sensor
    * `magel.sensor.update(sensorKey, sensorValue)` ใช้แก้ไขข้อมูลเซนเซอร์ตาม sensorKey และ sensorValue ที่กำหนด
@@ -321,23 +425,73 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * `magel.sensor.setJSONBufferSize(int)` ใช้กำหนดขนาดของ JSONBuffer ที่ใช้ในการเก็บข้อมูลของ sensorKey และ sensorValue ซึ่งกำหนดค่าเริ่มต้นไว้ที่ 1,024 ไบต์ สามารถกำหนดได้สูงสุดที่ 8,192 ไบต์
    * `magel.sensor.readJSONBufferSize()` ใช้อ่านขนาดของ JSONBuffer
    * `magel.sensor.report()` ใช้ในการส่งข้อมูลเซนเซอร์ทั้งหมดที่อยู่ใน JSONBuffer ไปยัง Magellan Platform และลบค่าเซนเซอร์ทั้งหมดที่อยู่ภายใน JSONBuffer ให้หลังจากส่งข้อมูล
+   * 🆕`magel.report.report(RetransmitSetting &retransSetting)` ใช้ส่งค่าเซนเซอร์ในรูปแบบ JSON ด้วย RetransmitSetting
    * `magel.sensor.clear()` ใช้ลบค่าเซนเซอร์ทั้งหมดที่อยู่ภายใน JSONBuffer
- * `Report` 
-   * `magel.subscribe.report.response()` ใช้ในการ Subscribe Response จากการส่งข้อมูลเซนเซอร์ในรูปแบบ JSON
-   * `magel.report.send(payload)` ใช้ส่งข้อมูลเซนเซอร์ในรูปแบบ JSON 
-   * `magel.subscribe.report.response(PLAINTEXT)` ใช้ในการ Subscribe Response ของการส่งข้อมูลเซนเซอร์ในรูปแบบ Plain Text
-   * `magel.report.send(String key, String value)` ใช้ส่งค่าเซนเซอร์ในรูปแบบ Plain Text
-   * `magel.subscribe.reportWithTimestamp.response();` ใช้ในการ Subscribe Response การส่งข้อมูลเซนเซอร์ในรูปแบบ JSON พร้อมค่า Timestamp
-   * `magel.report.send(Int UNIXtimestamp, String payload);` ใช้ส่งข้อมูลเซนเซอร์ในรูปแบบ JSON พร้อมค่า Timestamp ในรูปแบบ UNIXTS (UnixTimestamp) ไปยัง Magellan Platform
- * `Control` 
-   * `magel.subscribe.control()` ใช้ในการ Subscribe เพื่อรอรับค่า Control ในรูปแบบ JSON
-   * `magel.control.request()` ใช้ในการร้องขอค่าของ Control ที่ยังไม่ได้ตอบว่ารับทราบการสั่งงาน (Acknowledge) มาทั้งหมดโดยจะได้รับ Response ในรูปแบบ JSON ซึ่งคำสั่งนี้เหมาะสำหรับอุปกรณ์ที่ไม่ได้ใช้งานแบบ Realtime
-   * `magel.deserializeControl(payload)` ใช้ในการ Deserialize JSON ของค่า Control ออกมา 
-   * `magel.control.ACK(String payload)` ใช้ส่งข้อมูลตอบกลับเพื่อรับทราบการสั่งงาน (Acknowledge) จากการ Control ผ่าน Widget บนหน้า Dashboard ของ Magellan Platform โดยจะส่งค่าไปในรูปแบบ JSON
-   * `magel.subscribe.control(PLAINTEXT)` ใช้ในการ Subscribe เพื่อรอรับค่า Control ในรูปแบบ Plain Text
-   * `magel.control.request(String controlKey)` ใช้ในการร้องขอค่าของ Control ที่ยังไม่ได้ตอบรับทราบการสั่งงาน (Acknowledge) โดยเฉพาะ controlKey ที่ต้องการอยากจะทราบ โดยที่อุปกรณ์จะได้รับ Response ในรูปแบบ Plain Text ซึ่งเหมาะสำหรับอุปกรณ์ที่ไม่ได้ใช้งานแบบ Realtime
-   * `magel.control.ACK(String controlKey, String controlValue)` ใช้ในการส่งข้อมูลตอบกลับเพื่อรับทราบการสั่งงาน (Acknowledge) จากการ Control ผ่าน Widget บนหน้า Dashboard ของ Magellan Platform โดยจะส่งค่าไปในรูปแบบ Plaint Text
-   *  เมื่ออุปกรณ์ได้รับการ Control แล้ว แต่ไม่ตอบกลับเพื่อรับทราบการสั่งงาน (Acknowledge) ไปยัง Magellan Platform ดังนั้นทุกครั้งที่อุปกรณ์ทำการส่งข้อมูลมายัง Magellan Platform จะทำให้อุปกรณ์ยังคงได้รับค่า Control (Spam) นั้น ๆ ทุกครั้งเสมอ จนกว่าอุปกรณ์จะตอบกลับเพื่อรับทราบการสั่งงาน
+
+# วิธีใช้งาน sensor.report with message id ด้วย RetransmitSetting [เพิ่มเติม](#retransmitStructor)
+```cpp
+   void loop()
+   {
+     magel.loop();
+     magel.subscribes([](){
+       magel.subscribe.report.response(); //if using MessageId please subscribe response report to check status and MessageId is acepted from platform.
+     });
+     magel.interval(15, [](){
+       RetransmitSetting settingReport; //decleare object variable for setting report
+       ResultReport result; //decleare object variable for receive result report
+       settingReport.setEnabled(true); //true: retransmit / false: report with MsgId only
+       settingReport.setRepeat(5); //default: 2 attempt *retransmit max 2 time to cancel attempt
+       settingReport.setDuration(7); //default: 5 sec. delay wait duration every retransmit
+       settingReport.generateMsgId(); //optional: regenerateMsgId if manual using ".setMsgId(msgId)"
+       magel.sensor.add("hello","magellan");
+       magel.sensor.add("numbers",1234);
+       result = magel.sensor.report(settingReport);
+       Serial.print("[MsgId report]: ");
+       Serial.println(result.msgId);
+       Serial.print("[Status report]: ");
+       Serial.println((result.statusReport)? "SUCCESS" : "FAIL");
+     });
+     /* do something */
+   }
+```
+
+# วิธีการใช้งาน Callback getControl and Acknowledge control
+```cpp
+  #include <MAGELLAN_SIM7600E_MQTT.h>
+  MAGELLAN_SIM7600E_MQTT magel;
+  void setup()
+  {
+    Serial.begin(115200);
+    setting.endpoint = "magellan.ais.co.th"; //if not set *default: magellan.ais.co.th
+    setting.clientBufferSize = defaultOTAbuffer; // if not set *default: 1024
+    magel.begin(setting);
+    //* callback getControl
+    magel.getControlJSON([](String controls){ 
+      Serial.print("# Control incoming JSON: ");
+      Serial.println(controls);
+      String control = magel.deserializeControl(controls);
+      magel.control.ACK(control); //ACKNOWLEDGE control to magellan ⚠️ important to Acknowledge control value to platform
+    });
+  }
+```
+* `หลังจาก decleare function callback getControl มาแล้วไม่ว่าจะ format 'JSON' หรือ 'Plaintext' ก็ตามหากทำการ triger control จาก widget บน platform เพื่อให้อุปกรณ์ได้รับค่า control แต่ตัวอุปกรณ์เกิด disconnect หรือปัญหาที่ไม่ได้รับ message value ทัน event นั้นๆ สามารถเรียกขอค่า control ที่ค้างหรือยังไม่ได้ Acknowledge ได้ดังนี้`
+>ℹ️ Information`หากทำการ Request control แล้วไม่มีค่าค้างอยู่ค่าที่จะได้รับเข้ามาใน Callback getControl จะมีแค่ code 40400 หากมีค้างอยู่จะได้รับ code 20000  และ value control` [Status code](https://magellan.ais.co.th/api-document/3/3)
+# วิธีการ Request control value ที่ค้างอยู่ (ยังไม่ได้รับการ Acknowledge จากอุปกรณ์) 
+```cpp
+   void loop()
+   {
+     magel.loop();
+     magel.subscribes([](){
+       magel.subscribe.control();
+       magel.control.request();  //* using here for request once after new connect or reconnect
+     });
+     
+     magel.interval(20, [](){
+       magel.control.request(); //*
+     });
+   }
+```
+
  * `ClientConfig` 
    * `magel.clientConfig.add(ClientConfigKey, ClientConfigValue)` ใช้เพิ่มข้อมูล ClientConfig ลงใน JSONBuffer ของ ClientConfig
    * `magel.clientConfig.update(ClientConfigKey, ClientConfigValue)` ใช้แก้ไขค่า ClientConfig ที่มีการเพิ่มไว้แล้วภายใน JSONBuffer
@@ -345,8 +499,24 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * `magel.clientConfig.remove(ClientConfigKey)` ใช้ในการลบข้อมูลของ ClientConfig ออกจาก JSONBuffer ของ ClientConfig ด้วย ClientConfigKey
    * `magel.clientConfig.toJSONString()` ใช้สร้าง JSON String จากข้อมูล ClientConfig ที่ได้ทำการเพิ่มเข้าไปใน JSONBuffer ของ ClientConfig ซึ่งมีขนาดให้ใช้งานจำนวน 512 ไบต์
    * `magel.clientConfig.save()` ใช้ส่งข้อมูล ClientConfig บันทึกไปยัง Magellan Platform จาก clientConfigKey และ clientConfigValue ที่ได้ทำการเพิ่มเข้าไปใน JSONBuffer
-   * `magel.clientConfig.save(payload)` ใช้ส่งข้อมูล ClientConfig บันทึกไปยัง Magellan Platform จากข้อมูลในรูปแบบ JSON
+   * `magel.clientConfig.save(clientConfigs)` ใช้ส่งข้อมูล ClientConfig บันทึกไปยัง Magellan Platform จากข้อมูลในรูปแบบ JSON
    * `magel.clientConfig.clear()` ใช้ลบค่า ClientConfig ใน JSONBuffer ของ ClientConfig ทั้งหมด
+# วิธีการใช้งาน Client config 
+>ℹ️ Information `Client config จุดประสงค์หรือการใช้งาน feature นี้ถูกสร้างมาเพื่อให้ตัวอุปกรณ์อัพเดทค่า "การตั้งค่าของอุปกรณ์" คล้ายกับ report แต่ไปแสดงข้อมูลใน thing information ด้านล่างแทน activity realtime เพื่อให้ผู้ใช้ง่ายทราบว่า ณ ตอนนี้อุปกรณ์มีการตั้งค่าอย่างไรโดยไม่ไปปะปนกับการส่งค่า sensor ผ่านการ report`  
+```cpp
+  #include <MAGELLAN_SIM7600E_MQTT.h>
+  MAGELLAN_SIM7600E_MQTT magel;
+  void setup()
+  {
+    Serial.begin(115200);
+    setting.endpoint = "magellan.ais.co.th"; //if not set *default: magellan.ais.co.th
+    magel.begin(setting);
+    magel.clientConfig.add("location", "15.0000, 58.0000"); //* update location once after connect platform
+    magel.clientConfig.add("battery", 100); //* update battery level once after connect platform
+    magel.clientConfig.add("interval", 15000); //* update interval value level once after connect platform
+    magel.clientConfig.send(); //* send all added clientConfig to platform
+  }
+```
  * `ServerConfig`
    * `magel.subscribe.serverConfig()` ใช้ในการ Subscribe รับข้อมูลการตั้งค่าของอุปกรณ์ (serverConfig) ในรูปแบบ JSON
    * `magel.serverConfig.request()` ใช้ในการร้องขอข้อมูลการตั้งค่าของอุปกรณ์รูปแบบ JSON
@@ -360,6 +530,41 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * `magel.getServerTime()` ใช้ในการร้องขอเวลา Timestamp (Unix) จาก Magellan Platform
    * `magel.subscribe.getServerTime()` ใช้ในการ Subscribe getServerTime รับค่า Timestamp เมื่ออุปกรณ์มีการร้องขอเวลาไปยัง Magellan Platfrom ในรูปแบบ JSON
    * `magel.subscribe.getServerTime(PLAINTEXT)` ใช้ในการ Subscribe getServerTime รับค่า Timestamp เมื่ออุปกรณ์มีการร้องขอเวลาไปยัง Magellan Platfrom ในรูปแบบ Plant Text
+# วิธีการใช้งาน GetServerTime
+```cpp
+  #include <MAGELLAN_SIM7600E_MQTT.h>
+  MAGELLAN_SIM7600E_MQTT magel;
+  unsigned long unixTimeMG;
+  void setup()
+  {
+    Serial.begin(115200);
+    setting.endpoint = "magellan.ais.co.th"; //if not set *default: magellan.ais.co.th
+    magel.begin(setting);
+    magel.getResponse(UNIXTIME, [](EVENTS events) 
+    { //* for get unixTime from magellan
+      unixTimeMG = events.Payload.toInt();
+      Serial.print("[unixTimeMG from magellan]: ");
+      Serial.println(unixTimeMG);
+
+      String timeString = magel.utils.toDateTimeString(unixTimeMG, 7);
+      Serial.printf("\nMagellan: %s\n", timeString.c_str());
+    });
+  }
+   void loop()
+   {
+     magel.loop();
+     magel.subscribes([](){
+       magel.subscribe.getServerTime(PLAINTEXT); 
+       magel.getServerTime(); // request time from magellan server once after new connect or reconnect
+     });
+     
+     magel.interval(20, [](){
+       magel.getServerTime(); // request time from magellan server //*
+     });
+   }
+```
+>ℹ️ Information `หากอุปกรณ์ต้องการค่าเวลาไปใช้ไม่ว่าจะเป็นการ sync RTC Module หรืออื่นๆ สามารถ request ขอค่าเวลาจาก platform ได้โดยค่าเวลาจะเป็น UnixTimestamp format เช่น 1688011509` 
+
  * `Callback`
    * `magel.getControl(callback void(String key, String value))` ใช้รับค่า Control เมื่อเกิด Control events จาก Widget บนหน้าเว็บ Magellan Platform ซึ่งจะได้รับข้อมูลเป็น Key และ Value จากการ Control ในรูปแบบ Plain Text
    * `magel.getControl(String focusKey, callback void(String payload))` ใช้รับค่า Control เมื่อเกิด Control events จาก Widget บนหน้าเว็บ Magellan Platform ซึ่งจะได้รับข้อมูล Value จากการ Control เฉพาะ focusKey ที่ผู้ใช้ได้กำหนดไว้เท่านั้น ในรูปแบบ Plain Text
@@ -371,8 +576,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * `magel.getServerConfigJSON(callback void(JsonObject docJson))` ใช้รับค่า Config เมื่อเกิด events จากเปลี่ยนแปลง Online Config บนหน้าเว็บ Magellan Platform ซึ่งจะได้รับข้อมูลในรูปแบบ JSONObject
    * `magel.getResponse(enum eventResponse, [] (EVENTS event){})` ใช้รับข้อมูลของ Response เมื่อเกิด events ต่าง ๆ โดยผู้ใช้งานสามารถกำหนด enum eventResponse จาก event ที่ต้องการจะแสดงค่าลงไปใน function callback getResponse ได้ดังนี้
   
-
-    [ Suggest for use in callback getResponse ]  
+  * [ Suggest for use in callback getResponse ]  
     | eventResponse | enum |
     |--|--|
     | UNIXTIME | 6 |
@@ -382,7 +586,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
     | RESP_REPORT_JSON | 11 |
     | RESP_REPORT_PLAINTEXT | 12 |
 
-    [  Inside data type struct EVENTS ]
+  * [  Inside data type struct EVENTS ]
     | Available function | Results |
     |--|--|
     | event.Key | Type Plaintext |
@@ -390,13 +594,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
     | event.RESP | String message response “SUCCESS” or “FAIL” |
     | event.CODE | success code such as 20000 or 40400 etc |
 
- * `Setting (Global Variables)`
-   * `setting.ThingIdentifier` ใช้เป็นตัวแปรสำหรับกำหนดค่า ThingIdentifier หรือ ICCID ของอุปกรณ์
-   * `setting.ThingSecret` ใช้เป็นตัวแปรสำหรับกำหนดค่า ThingSecret หรือ IMSI ของอุปกรณ์
-   * `setting.endpoint` ใช้เป็นตัวแปรสำหรับกำหนดค่า IP หรือ URL Path ปลายทางที่ต้องการให้อุปกรณ์เชื่อมต่อ
-   * `setting.clientBufferSize` ใช้เป็นตัวแปรสำหรับกำหนดค่า clientBufferSize ของอุปกรณ์ โดยสามารถกำหนดขนาดตามที่ต้องการหรือใช้ค่าตัวแปร Default ที่กำหนดให้ โดยมีดังนี้
-
-    [  ตารางแสดงค่าตัวแปร Default Setting clientBufferSize ]
+  * [  ตารางแสดงค่าตัวแปร Default Setting clientBufferSize ]
     | ตัวแปร | Default value | การเรียกใช้ตัวแปร |
     |--|--|--|
     | defaultbuffer | 1,024 bytes | setting.clientBufferSize = defaultbuffer |
@@ -417,7 +615,23 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
     | firmwareVersion | String | UNKNOWN | Version ของ Firmware | 
     | checksum | String | UNKNOWN | ค่า checksum ใช้รับรองความถูกต้องของ Firmware |
     | checksumAlgorithm | String | UNKNOWN | ประเภท Algorithm ของ Checksum |
- 
+
+>⚠️ Warning `หากมีการ ใช้งาน OTA ควรจะหยุดการทำงานอื่นๆของอุปกรณ์ในส่วนทำงานของโปรแกรม void loop() มีไม่ให้เกิดการขัดขวางการทำงานในการ download และ buffer firmware data บนตัวอุปกรณ์ โดยสามารถ เช็คและหยุดการทำงานในส่วนอื่นๆที่ไม่จำเป็นเพื่อให้อุปกรณ์สามารถ OTA ได้อย่างมีประสิทธิภาพดังนี้`
+```cpp
+   void loop()
+   {
+     magel.loop();
+     magel.subscribes([](){
+       magel.subscribe.control();
+     });
+     
+    if(!magel.OTA.utility().inProcessOTA){
+      /* 
+      do something if device not in OTA process such as read and send data
+      */
+    }
+   }
+```
    * `magel.OTA.autoUpdate(boolean)` ใช้สำหรับเรียกใช้งานการทำ OTA โดยอัตโนมัติ โดยผู้ใช้งานสามารถกำหนดได้ โดย true คือการกำหนดให้ทำ OTA โดยอัตโนมัติ และ false คือการกำหนดให้ทำ OTA ตามที่ผู้ใช้งานกำหนด
    * `magel.OTA.executeUpdate()` ใช้สำหรับเรียกใช้งานการทำ OTA แบบ Manual
    * `magel.OTA.getAutoUpdate()` ใช้สำหรับอ่านสถานะการตั้งค่าในการทำ OTA
@@ -508,6 +722,10 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * `reportSensor`
      * [reportSensorJSON](examples/Magellan/MQTT/reportSensor/reportSensorJSON/reportSensorJSON.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์บนอุปกรณ์ไปบน Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
      * [reportSensorPlaintext](examples/Magellan/MQTT/reportSensor/reportSensorPlaintext/reportSensorPlaintext.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์บนอุปกรณ์ไปบน Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
+   * `reportData with messageId`
+     * [reportMsgId](examples/Magellan/MQTT/reportWithMsgId/reportMsgId.ino) - ตัวอย่างการส่งค่าตัวขึ้นไปยัง Magellan Platform ด้วย MessageId
+     * [reportMsgIdReportSetting](examples/Magellan/MQTT/reportWithMsgId/reportMsgIdReportSetting.ino) - ตัวอย่างการส่งค่าตัวขึ้นไปยัง Magellan Platform ด้วย MessageId ผ่านการใช้ ReportSetting
+     * [reportRetransmit](examples/Magellan/MQTT/reportWithMsgId/reportRetransmit.ino) - ตัวอย่างการส่งค่าตัวขึ้นไปยัง Magellan Platform ด้วยการเปิดใช้งาน 
    * `reportUserButton`
      * [reportUserButton](examples/Magellan/MQTT/reportUserButton/reportUserButton.ino) - ตัวอย่างการใช้งานปุ่มกด (User Button) บนอุปกรณ์ โดยจะมีการทำงานร่วมกับ Magellan Platform ในส่วนของ Dashboard ผ่าน 4G (SIM7600)
    * `reportWithTimestamp`
@@ -526,7 +744,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
      * [autoUpdate](examples/Magellan/MQTT/OTA/autoUpdate/autoUpdate.ino) - ตัวอย่างการกำหนดให้อุปกรณ์ทำการอัพเดท Firmware อัตโนมัติ
      * [manualUpdate](examples/Magellan/MQTT/OTA/manualUpdate/manualUpdate.ino) - ตัวอย่างการกำหนดให้อุปกรณ์ทำการอัพเดท Firmware ตามที่ผู้ใช้งานกำหนดเอง
      * [utilityInformation](examples/Magellan/MQTT/OTA/utilityInformation/utilityInformation.ino) - ตัวอย่างการอ่านค่าข้อมูลการ OTA
-
+>⚠️ Warning `ข้อควรระวังในการใช้งาน OTA ด้วยบอร์ด ESP8266 จำเป็นจะต้องทดสอบ Binary file (.bin) ของ firmware ก่อนใช้งาน OTA จริงเสมอเนื่องจากหาก Build Binary file (.bin) จากคนละบอร์ดเช่นใช้ binary file ของ ESP32 มาใช้ OTA เข้ายังบอร์ด ESP8266 อาจจะทำให้ firmware ดั่งเดิมที่ใช้งานได้เสียหายและไม่สามารถทำงานต่อได้จำเป็นต้องแก้ไขด้วยการ erase flash หรือ upload firmware ใหม่ผ่านสายเชื่อมโดยตรงแทน *แต่ในบน ESP32 ตัว standard library ได้มีการ validate board ใน Binary file ที่จะ OTA มาแล้วในระดับหนึ่ง แต่ทั้งนี้ก็ควรจะทดสอบก่อนใช้งาน OTA จริงเสมอเผื่อให้แน่ใจว่า firmware ใหม่ที่ OTA เข้าไปมีความเสถียรภาพพร้อมใช้งาน`
 ### ไลบรารีแนะนำให้ใช้งานร่วมกัน
 
  * [ArduinoHttpClient](https://github.com/arduino-libraries/ArduinoHttpClient) - ไลบรารีเชื่อมต่อ HTTP/HTTPS
