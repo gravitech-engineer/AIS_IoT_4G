@@ -28,8 +28,8 @@ public:
     boolean saveProfileOTA(JsonObject dataOTA, String stateOTA);
     boolean saveLastedOTA(String lastedDataOTA);
     boolean saveSuccessOrFail(String stateOTA);
-    boolean compareFirmwareOTA(JsonObject dataOTA);
-    boolean compareFirmwareIsUpToDate(JsonObject dataOTA);
+    boolean compareFirmwareOTA(JsonObject dataOTA); //using for incoming without check update
+    boolean compareFirmwareIsUpToDate(JsonObject dataOTA); //using when incoming by check update
 };
 extern manageConfigOTAFile configOTAFile;
 #endif

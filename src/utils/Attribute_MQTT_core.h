@@ -1,8 +1,7 @@
 /*
-library version: v2.6.1
 Author:(POC Device Magellan team)      
 Create Date: 25 April 2022. 
-Modified: 1 september 2022.
+Modified: 16 february 2023.
 Released for private usage.
 */
 #ifndef ATTRIBUTE_CORE_H
@@ -11,12 +10,18 @@ Released for private usage.
 #include <Client.h>
 #include "../PubSubClient.h"
 #include "../ArduinoJson-v6.18.3.h"
+#include "./StorageMemory.h"
 #include "./FileSystem.h"
 #include "./BuiltinSensor.h"
 #include "./manageConfigOTAFile.h"
 #define useGSMClient  0
 #define useExternalClient 1
 #include "SPIFFS.h"
+
+#define _major_ver 1
+#define _feature_ver 2
+#define _enhance_ver 0
+#define lib_ver "v"+String(_major_ver) +"."+ String(_feature_ver)+"."+String(_enhance_ver)
 
 class Attribute_MQTT_core
 {
@@ -69,6 +74,19 @@ public:
     static StaticJsonDocument<512> docClientConf;
     static DynamicJsonDocument *adjDoc;
     static DynamicJsonDocument *docSensor;
+    //1.2.0
+    static boolean checkUpdate_inside;
+    static unsigned int delayCheckUpdate_inside;
+    static unsigned int delayRequest_download;
+    static size_t buffer_JSON_bufferSize;
+    static size_t max_payload_report;
+    static int matchMsgId_cb;
+    static int matchMsgId_send;
+    static int maxRetransmit;
+
+    static boolean isMatchMsgId;
+    static boolean reqRetransmit;
+
 };
 extern Attribute_MQTT_core attr;
 #endif

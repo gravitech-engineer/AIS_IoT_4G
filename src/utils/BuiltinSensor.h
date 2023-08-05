@@ -36,7 +36,24 @@ class BuiltinSensor: private utility
         float readTemperature();
         float readHumidity();
         String readLocation();
-        unsigned long getUnixTime();
+
+        void setLocalTimeZone(int timeZone);
+        int getDay();
+        String getDayToString();
+        int getMonth();
+        String getMonthToString();
+        int getYear();
+        String getYearToString();
+        int getHour();
+        String getHourToString();
+        int getMinute();
+        String getMinuteToString();
+        int getSecond();
+        String getSecondToString();
+        String getDateTimeString();//*
+        String getUniversalTime();//*
+        unsigned long getUnixTime(); //*
+        
 };
 
 extern BuiltinSensor mySensor;

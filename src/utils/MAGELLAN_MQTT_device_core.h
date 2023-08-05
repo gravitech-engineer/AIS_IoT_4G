@@ -21,12 +21,11 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-Magellan_4GBoard v2.6.1 AIS 4G Board.
 support SIMCOM SIM7600E(AIS 4G Board)
  
 Author:(POC Device Magellan team)      
 Create Date: 25 April 2022. 
-Modified: 9 december 2022.
+Modified: 22 may 2023.
 Released for private usage.
 */
 #ifndef MAGELLAN_MQTT_DEVICE_CORE_h
@@ -43,8 +42,11 @@ Released for private usage.
 #include "Attribute_MQTT_core.h"
 #include "BuiltinSensor.h"
 
-// #define Dev_version "v2.6.1"
-#define lib_version "v1.1.1"
+//Response Payload format some function can be set.
+#define lib_version lib_ver
+#define major_version _major_ver
+#define feature_version _feature_ver
+#define enhance_version _enhance_ver
 
 #define PLAINTEXT 0 //Plaintext
 #define JSON 1 //Json
@@ -84,7 +86,6 @@ Released for private usage.
 #define OUT_OF_DATE 0
 #define UP_TO_DATE 1
 typedef struct {
-  // unsigned int Type;
   String Topic;
   String Key;
   String Action;
@@ -92,8 +93,9 @@ typedef struct {
   String RESP;
   unsigned int CODE;
   unsigned int PayloadLength;
+  //update 1.2.0 msgId
+  int MsgId = -1;
 }EVENTS;
-
 typedef struct {
   String endPoint_IP;
   String endPoint_DOMAIN;
@@ -121,7 +123,6 @@ typedef std::function<void(JsonObject docs)> conf_JsonOBJ_handleCallback;
 typedef std::function<void(String key, String value)> ctrl_PTAhandleCallback;
 typedef std::function<void(String key, String value)> conf_PTAhandleCallback;
 typedef std::function<void(EVENTS event)> resp_callback;
-// typedef std::function<void(String respCODE)> resp_callback;
 
 typedef std::function<void(void)> func_callback_registerList;
 
@@ -130,8 +131,6 @@ typedef std::function<void(void)> func_callback_registerList;
 //Client Internet interface connection
 #define useGSMClient  0
 #define useExternalClient 1
-
-// #define subRemainCallback std::function<void(void)> subRemain
 
 typedef std::function<void(void)> func_callback_ms;
 
@@ -142,6 +141,7 @@ public:
   MAGELLAN_MQTT_device_core(); // for GSM client internet interface
   boolean flagToken = false;
   String client_id;
+  // String unixtTime;
   void setAuthMagellan(String _thingIden, String _thingSecret, String _imei = "none"); // add on
   void begin(boolean builtInSensor = false);
   void begin(String _thingIden, String _thingSencret, String _imei, unsigned int Zone = Production, uint16_t bufferSize = 1024, boolean builtInSensor = true);
@@ -215,6 +215,9 @@ public:
   // interface MAGELLANJSON 
   StaticJsonDocument<256> docJson;
 
+  // StaticJsonDocument<1024> docBuild;
+  // StaticJsonDocument<512> docClientConf;
+
   String deserialControlJSON(String jsonContent);
   JsonObject deserialJson(String jsonContent);
   void addSensor(String key, String value, JsonDocument &ref_docs);
@@ -251,6 +254,7 @@ public:
   void setChecksum(String md5Checksum);
   void setChunkSize(size_t Chunksize);
   static OTA_INFO OTA_info;
+  static func_callback_registerList duplicate_subs_list; //ver.1.2.0
   ///////////////
 
 private:
@@ -298,7 +302,7 @@ private:
   String token;
   String _debug;
   int port;
-  // boolean useBuiltInSensor = true;
+
 protected:
   PubSubClient *client = NULL;
   GSMClient *gsm_client  = NULL;

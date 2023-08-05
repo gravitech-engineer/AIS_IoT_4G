@@ -102,6 +102,12 @@ boolean manageConfigOTAFile::saveProfileOTA(JsonObject dataOTA, String stateOTA)
 
 boolean manageConfigOTAFile::saveLastedOTA(String lastedDataOTA)
 {
+  
+//   #ifdef ESP32
+//     String buffReadLastedOTA = lastedDataOTA.c_str();
+//   #elif defined ESP8266
+//     String buffReadLastedOTA = lastedDataOTA;
+//   #endif
   bool saveFile = false;
   JsonObject buffer;
   OTAdoc.clear();

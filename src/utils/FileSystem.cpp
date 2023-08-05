@@ -75,6 +75,51 @@ ListFileString FileSystem::listFile(const char* dir_name, fs::FS &fs)
    return list;
 }
 
+String FileSystem::readBigFile(const char* path, fs::FS &fs)
+{
+  DEBUG_SERIAL.printf("Reading file: %s\r\n", path);
+  String _read_buffer;
+  File file = fs.open(path);
+  if(!file || file.isDirectory())
+  {
+      DEBUG_SERIAL.println(F("- faild to open file for reading"));
+      return "null";
+  }
+  
+  DEBUG_SERIAL.println("- read from file size:"+String(file.size()));
+  while(file.available())
+  {
+    char buff[65000];
+    int l = file.readBytesUntil('\n', buff, sizeof(buff));
+    buff[l] = 0;
+    _read_buffer.concat(buff);
+
+  }
+  return _read_buffer;
+}
+
+ListFileString FileSystem::readLargeFile(const char* path, fs::FS &fs)
+{
+  ListFileString list;
+  DEBUG_SERIAL.printf("Reading file: %s\r\n", path);
+  char* buffer;
+  String _read_buffer;
+  File file = fs.open(path);
+  if(!file || file.isDirectory())
+  {
+      DEBUG_SERIAL.println(F("- faild to open file for reading"));
+      return list;
+  }
+  
+  DEBUG_SERIAL.println("- read from file size:"+String(file.size()));
+  while(file.available())
+  {
+    list.push_back(file.readStringUntil('\n').c_str());
+  }
+  file.close();
+  return list;
+}
+
 String FileSystem::readFile(const char* path, fs::FS &fs)
 {
     DEBUG_SERIAL.printf("Reading file: %s\r\n", path);
