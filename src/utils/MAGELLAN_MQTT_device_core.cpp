@@ -98,6 +98,10 @@ boolean attemp_download_2 = false;
 // 1.2.1
 SubscribesCheckLists Attribute_MQTT_core::sub_check_list;
 
+// 1.2.2
+unsigned long Attribute_MQTT_core::refPercentOTA = 0;
+bool Attribute_MQTT_core::flagPrintProgressOTA = false;
+
 String b2str(byte *payload, unsigned int length) // convert byte* to String
 {
   char buffer_payload[length + 1] = {0};
@@ -447,8 +451,11 @@ void save_fw_info(String topic, String payload)
         }
         else if ((attr.inProcessOTA) && (!attr.triggerRemainOTA)) // inprocess get info fw
         {
-          attr.remain_ota_fw_info_match = check_remain_fw_isMatch(attr.valid_remain_fw_name,
-                                                                  attr.valid_remain_fw_size, "is obsolete"); // re new OTA description
+          attr.remain_ota_fw_info_match = check_remain_fw_isMatch(
+            attr.valid_remain_fw_name,
+            attr.valid_remain_fw_size, 
+            "is obsolete"
+          ); // re new OTA description
           if (!attr.remain_ota_fw_info_match)
           {
             Serial.println(F("======================="));
@@ -598,6 +605,21 @@ void validate_lostOTA_Data_incoming()
   }
 }
 
+// v1.2.2
+void updatePercentProgressOTA(unsigned int percent)
+{
+  if (percent % 10 == 0 && percent <= 100 && attr.refPercentOTA != percent)
+  {
+    attr.flagPrintProgressOTA = true;
+    attr.refPercentOTA = percent;
+  }
+  if (!attr.flagPrintProgressOTA)
+    return;
+  String msgProgress = "{\"description\":\"[" + String(percent) + "%] FW: " + MAGELLAN_MQTT_device_core::OTA_info.firmwareVersion + "\"}";
+  pub_UpdateProgress("DOWNLOADING", msgProgress);
+  attr.flagPrintProgressOTA = false;
+}
+
 void updateFirmware(uint8_t *data, size_t len)
 {
   Update.write(data, len);
@@ -606,6 +628,7 @@ void updateFirmware(uint8_t *data, size_t len)
   Serial.println("# <-Incoming chunk size: " + String(attr.incomingChunkSize));
   unsigned int calc_percent = map(attr.current_size, 0, attr.fw_total_size, 0, 100);
   Serial.println("# <-Current firmware size: " + String(attr.current_size) + "/" + String(attr.fw_total_size) + " => [" + String(calc_percent) + " %]");
+  updatePercentProgressOTA(calc_percent);
   validate_lostOTA_Data_incoming();
   if (attr.current_size != attr.fw_total_size)
   {
@@ -1795,7 +1818,7 @@ void MAGELLAN_MQTT_device_core::begin(boolean builtInSensor)
   checkConnection();
 }
 
-void MAGELLAN_MQTT_device_core::begin(String _thingIden, String _thingSencret, String _imei,  uint16_t bufferSize, boolean builtInSensor)
+void MAGELLAN_MQTT_device_core::begin(String _thingIden, String _thingSencret, String _imei, uint16_t bufferSize, boolean builtInSensor)
 {
   setAuthMagellan(_thingIden, _thingSencret, _imei);
   Serial.print(F("ThingIdentify: "));
@@ -1807,7 +1830,7 @@ void MAGELLAN_MQTT_device_core::begin(String _thingIden, String _thingSencret, S
   begin(_thingIden, builtInSensor, bufferSize);
 }
 
-void MAGELLAN_MQTT_device_core::begin(String _client_id, boolean builtInSensor,  uint16_t bufferSize)
+void MAGELLAN_MQTT_device_core::begin(String _client_id, boolean builtInSensor, uint16_t bufferSize)
 {
   Serial.println("=================== Begin MAGELLAN Library [AIS 4G Board] " + String(lib_version) + " ===================");
   if (attr.clientNetInterface == useGSMClient)

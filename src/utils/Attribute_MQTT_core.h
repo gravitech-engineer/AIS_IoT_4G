@@ -21,10 +21,10 @@ Released for private usage.
 // Lightweight version macros - no runtime String concatenation
 #define _major_ver 1
 #define _feature_ver 2
-#define _enhance_ver 1
+#define _enhance_ver 2
 
 // Compile-time string concatenation using preprocessor
-#define STRINGIFY(x) #x     
+#define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 #define lib_ver "v" TOSTRING(_major_ver) "." TOSTRING(_feature_ver) "." TOSTRING(_enhance_ver)
 #define lib_model_device "AIS 4G Board"
@@ -95,6 +95,10 @@ public:
 
     // 1.2.1
     static SubscribesCheckLists sub_check_list;
+
+    // 1.2.2
+    static unsigned long refPercentOTA;
+    static bool flagPrintProgressOTA;
 };
 extern Attribute_MQTT_core attr;
 #endif
