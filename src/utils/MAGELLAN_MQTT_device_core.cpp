@@ -452,10 +452,9 @@ void save_fw_info(String topic, String payload)
         else if ((attr.inProcessOTA) && (!attr.triggerRemainOTA)) // inprocess get info fw
         {
           attr.remain_ota_fw_info_match = check_remain_fw_isMatch(
-            attr.valid_remain_fw_name,
-            attr.valid_remain_fw_size, 
-            "is obsolete"
-          ); // re new OTA description
+              attr.valid_remain_fw_name,
+              attr.valid_remain_fw_size,
+              "is obsolete"); // re new OTA description
           if (!attr.remain_ota_fw_info_match)
           {
             Serial.println(F("======================="));
@@ -1463,11 +1462,47 @@ void MAGELLAN_MQTT_device_core::setMessageListener(void (*callback)(EVENTS, char
     cb_internal = callback;
 }
 
+void MAGELLAN_MQTT_device_core::dead_reconnect_handler()
+{
+  ulong diff_time_reconnect = millis() - this->fallback_dead_reconnect_time;
+  Serial.print(F("# Reconnect Elapsed Time (ms): "));
+  Serial.println(String(diff_time_reconnect));
+  if (diff_time_reconnect <= this->threshold_dead_reconnect_time)
+  {
+    Serial.print(F("# Threshold Dead Reconnect Time (ms): "));
+    Serial.println(String(this->threshold_dead_reconnect_time));
+    Serial.println(F("# Detected Dead Reconnect Elapsed Time <= Threshold Dead Reconnect Time"));
+    this->cnt_dead_reconnect_time++;
+    Serial.print(F("# Dead Reconnect Attempt: "));
+    Serial.print(String(this->cnt_dead_reconnect_time));
+    Serial.print(F("/"));
+    Serial.println(String(this->max_cnt_dead_reconnect_time));
+
+    if (this->cnt_dead_reconnect_time >= this->max_cnt_dead_reconnect_time)
+    {
+      Serial.println(F("# Reach Max Dead Reconnect Attempt, Restart Board"));
+      delay(3000);
+      ESP.restart();
+    }
+  }
+  else
+  {
+    Serial.println(F("# Dead Reconnect Reset Counter"));
+    Serial.print(F("# Reconnect Elapsed Time > Threshold Dead Reconnect Time (ms):  "));
+    Serial.print(String(diff_time_reconnect));
+    Serial.print(F(" ->"));
+    Serial.println(this->threshold_dead_reconnect_time);
+    this->cnt_dead_reconnect_time = 0;
+  }
+  this->fallback_dead_reconnect_time = millis();
+}
+
 void MAGELLAN_MQTT_device_core::reconnect()
 {
   while (!isConnected())
   {
-    Serial.print(F("Device Disconected from Magellan..."));
+    Serial.println(F("Device Disconected from Magellan..."));
+    this->dead_reconnect_handler();
     checkConnection();
     if (flagToken)
     {

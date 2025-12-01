@@ -1605,10 +1605,6 @@ void MAGELLAN_SIM7600E_MQTT::subscribesHandler(func_callback_registerList cb_onC
 {
   duplicate_subs_list = [&]
   {
-    if (cb_onConnected != NULL)
-    {
-      cb_onConnected();
-    }
     attr.sub_check_list.GetSubList();
     if (attr.ext_Token != "" && attr.ext_Token.length() > 30)
     {
@@ -1659,33 +1655,11 @@ void MAGELLAN_SIM7600E_MQTT::subscribesHandler(func_callback_registerList cb_onC
           coreMQTT->registerResponseReportTimestamp();
         }
       }
-      // else
-      // {
-      //   attr.triggerRemainSub = true;
-      //   Serial.println("@ Found OTA Inprocessing Unsubscribes unnecessary");
-      //   if (attr.sub_check_list.SubControlPlaintext)
-      //     coreMQTT->unregisterControl(PLAINTEXT);
-      //   if (attr.sub_check_list.SubControlJSON)
-      //     coreMQTT->unregisterControl(JSON);
-      //   if (attr.sub_check_list.SubServerConfigPlaintext)
-      //     coreMQTT->unregisterConfig(PLAINTEXT);
-      //   if (attr.sub_check_list.SubServerConfigJSON)
-      //     coreMQTT->unregisterConfig(JSON);
-      //   if (attr.sub_check_list.SubServerTimePlaintext)
-      //     coreMQTT->unregisterTimestamp(PLAINTEXT);
-      //   if (attr.sub_check_list.SubServerTimeJSON)
-      //     coreMQTT->unregisterTimestamp(JSON);
-      //   if (attr.sub_check_list.SubReportResponseJSON)
-      //     coreMQTT->unregisterResponseReport(JSON);
-      //   if (attr.sub_check_list.SubReportResponsePlaintext)
-      //     coreMQTT->unregisterResponseReport(PLAINTEXT);
-      //   if (attr.sub_check_list.SubHeartbeatJSON)
-      //     coreMQTT->unregisterResponseHeartbeat(JSON);
-      //   if (attr.sub_check_list.SubHeartbeatPlaintext)
-      //     coreMQTT->unregisterResponseHeartbeat(PLAINTEXT);
-      //   if (attr.sub_check_list.SubReportWithTimestamp)
-      //     coreMQTT->unregisterResponseReportTimestamp();
-      // }
+
+      if (cb_onConnected != NULL)
+      {
+        cb_onConnected();
+      }
     }
   };
   coreMQTT->registerList(duplicate_subs_list);

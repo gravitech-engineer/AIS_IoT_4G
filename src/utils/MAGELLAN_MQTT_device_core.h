@@ -292,6 +292,12 @@ private:
   String _debug;
   int port;
 
+  void dead_reconnect_handler();
+  const int threshold_dead_reconnect_time = 7500;
+  ulong fallback_dead_reconnect_time = 0;
+  ulong cnt_dead_reconnect_time = 0;
+  const int max_cnt_dead_reconnect_time = 5;
+
 protected:
   PubSubClient *client = NULL;
   GSMClient *gsm_client  = NULL;
