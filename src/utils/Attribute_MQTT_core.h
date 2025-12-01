@@ -21,7 +21,7 @@ Released for private usage.
 // Lightweight version macros - no runtime String concatenation
 #define _major_ver 1
 #define _feature_ver 2
-#define _enhance_ver 2
+#define _enhance_ver 3
 
 // Compile-time string concatenation using preprocessor
 #define STRINGIFY(x) #x
