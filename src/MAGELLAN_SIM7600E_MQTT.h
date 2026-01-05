@@ -42,6 +42,9 @@ struct Setting
   size_t clientBufferSize = defaultBuffer;
   boolean builtInSensor = true;
   String endpoint = _host_production;
+#ifdef BYPASS_REQTOKEN
+  String ThingToken = "null";
+#endif
 };
 
 struct RetransmitSetting
@@ -95,17 +98,25 @@ typedef struct
 class MAGELLAN_SIM7600E_MQTT : private MAGELLAN_MQTT_device_core
 {
 private:
+// 1.2.1
+#ifdef BYPASS_REQTOKEN
+  void setManualToken(String token_);
+#endif
+  void begin(String _thingIden, String _thingSencret, String _imei, uint16_t bufferSize = 1024, boolean builtinSensor = true);
 public:
   MAGELLAN_SIM7600E_MQTT();
   MAGELLAN_SIM7600E_MQTT(Client &client);
   void begin(Setting _setting);
   void begin(uint16_t bufferSize = 1024, boolean builtInSensor = true);
-  void begin(String _thingIden, String _thingSencret, String _imei, unsigned int Zone = Production, uint16_t bufferSize = 1024, boolean builtinSensor = true);
-  void beginCustom(String _client_id, boolean buildinSensor = true, String _host = "magellan.ais.co.th", int _port = mgPort, uint16_t bufferSize = 1024);
-  void beginCustom(String _thingIden, String _thingSencret, String _imei, String _host = "magellan.ais.co.th", int _port = mgPort, uint16_t bufferSize = 1024, boolean builtinSensor = true);
+  void beginCustom(String _client_id, boolean buildinSensor = true, String _host = _host_production, int _port = mgPort, uint16_t bufferSize = 1024);
+  void beginCustom(String _thingIden, String _thingSencret, String _imei, String _host = _host_production, int _port = mgPort, uint16_t bufferSize = 1024, boolean builtinSensor = true);
   void loop();
   void heartbeat(unsigned int second);
+
   void subscribes(func_callback_registerList cb_subscribe_list);
+ 
+  //1.2.1
+  void subscribesHandler(func_callback_registerList cb_onConnected = NULL); //auto Subscribe
   void interval(unsigned long second, func_callback_ms cb_interval);
   boolean getServerTime();
   void getControl(String focusOnKey, ctrl_handleCallback ctrl_callback);
@@ -207,11 +218,11 @@ public:
     boolean send(String sensors, int msgId); // 1.2.0
     boolean send(String reportKey, String reportValue);
     boolean send(int UnixtsTimstamp, String sensors);
-    boolean send(String reportKey, String reportValue, int msgId);                             // 1.2.0
+    boolean send(String reportKey, String reportValue, int msgId);                              // 1.2.0
     ResultReport send(String sensors, RetransmitSetting &retransSetting);                       // 1.2.0
     ResultReport send(String reportKey, String reportValue, RetransmitSetting &retransSetting); // 1.2.0
     int generateMsgId();
-    // ver.1.2.0
+
   private:
     ResultReport sendWithMsgId(String sensors);
     ResultReport sendWithMsgId(String reportKey, String reportValue);
@@ -270,7 +281,8 @@ public:
   struct OnTheAir
   {
   public:
-    int checkUpdate();
+    // int checkUpdate();
+    OTA_state checkUpdate(); //1.2.1
     OTA_INFO utility();
     void autoUpdate(boolean flagSetAuto = true);
     boolean getAutoUpdate();
@@ -339,7 +351,7 @@ public:
   struct Centric
   {
   public:
-    void begin(uint16_t setBufferSize = 1024);
+    void begin(uint16_t setBufferSize = defaultBuffer);
     void begin(Setting _setting);
   } centric;
 

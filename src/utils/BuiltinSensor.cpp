@@ -97,8 +97,7 @@ float BuiltinSensor::readLongitude()
 
 String BuiltinSensor::readLocation()
 {
-    // String _location = "0.000000,0.000000";
-    char _location[] = "0.000000,0.000000";
+    String _location = "0.000000,0.000000";
     if (!attr.useBuiltInSensor)
     {
         Serial.println(F("#[Warning] Can't read \"readLocation\" allow \"true\" useBuiltinSensor in begin function"));
@@ -106,7 +105,7 @@ String BuiltinSensor::readLocation()
     }
     else
     {
-        sprintf(_location, "%.4f,%.4f", readLatitude(), readLongitude());
+        _location = String(readLatitude(), 6) + "," + String(readLongitude(), 6);
     }
     return _location;
 }
@@ -225,13 +224,6 @@ void BuiltinSensor::setLocalTimeZone(int timeZone)
         Serial.println("# Setting local timezone on GPS GMT: " + String(_lc));
     }
 }
-
-// tm BuiltinSensor::utls.convertUnix(unsigned long unix, int timeZone)
-// {
-//     time_t timestamp = unix + (timeZone * secPerHour);
-//     tm *local_time = gmtime(&timestamp);
-//     return *local_time;
-// }
 
 int BuiltinSensor::getDay()
 {

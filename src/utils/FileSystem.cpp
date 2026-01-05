@@ -5,7 +5,7 @@
 
 void FileSystem::begin(boolean format_if_failed)
 {
-   if(!SPIFFS.begin(format_if_failed))
+   if(!FS_SYS.begin(format_if_failed))
    {
      DEBUG_SERIAL.println("- FileSystem Mount Failed");
      return;

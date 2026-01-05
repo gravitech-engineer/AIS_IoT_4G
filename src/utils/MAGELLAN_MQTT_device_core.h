@@ -51,14 +51,13 @@ Released for private usage.
 #define PLAINTEXT 0 //Plaintext
 #define JSON 1 //Json
 
-#define ERROR 0
+#define M_ERROR 0
 #define TOKEN 1
 #define CONTROL_JSON 2
 #define CONTROL_PLAINTEXT 3
 #define CONFIG_JSON 4
 #define CONFIG_PLAINTEXT 5
 #define UNIXTIME 6
-#define UTCTIME 7
 #define RESP_REPORT_JSON 8
 #define RESP_REPORT_PLAINTEXT 9
 #define RESP_REPORT_TIMESTAMP 10
@@ -68,23 +67,21 @@ Released for private usage.
 
 #define mgPort 1883
 #define hostCentric "centric-magellan.ais.co.th"
-//for define mode Timestamp
-#define SET_UNIXTS 0
-#define SET_UTC 1
 
-#define Production 1
-#define Staging 2 
-#define IoT 3
+#define _host_production "device-entmagellan.ais.co.th"
 
-#define _host_production "magellan.ais.co.th"
-
-#define defaultBuffer 1024
 #define defaultOTABuffer 8192
+#define defaultBuffer defaultOTABuffer
 #define _default_OverBufferSize 8192
 
-#define UNKNOWN -1
-#define OUT_OF_DATE 0
-#define UP_TO_DATE 1
+//1.2.1
+enum class OTA_state{
+    UNKNOWN_STATE = -1,
+    OUT_OF_DATE,
+    UP_TO_DATE,
+    NOT_AVAILABLE_STATE,
+  };
+
 typedef struct {
   String Topic;
   String Key;
@@ -93,8 +90,7 @@ typedef struct {
   String RESP;
   unsigned int CODE;
   unsigned int PayloadLength;
-  //update 1.2.0 msgId
-  int MsgId = -1;
+  int MsgId = -1;   //update 1.2.0 msgId
 }EVENTS;
 typedef struct {
   String endPoint_IP;
@@ -104,7 +100,7 @@ typedef struct {
 
 typedef struct {
     boolean isReadyOTA = false;
-    int firmwareIsUpToDate = -1;
+    OTA_state firmwareIsUpToDate = OTA_state::UNKNOWN_STATE; //1.2.1
     boolean inProcessOTA = false;
     unsigned int firmwareTotalSize = 0;
     String firmwareName = "UNKNOWN";
@@ -112,6 +108,8 @@ typedef struct {
     String checksum = "UNKNOWN";
     String checksumAlgorithm = "UNKNOWN";
 }OTA_INFO;
+
+
 
 typedef std::function<void(String payload)> ctrl_handleCallback;
 typedef std::function<void(String payload)> ctrl_Json_handleCallback;  
@@ -141,13 +139,12 @@ public:
   MAGELLAN_MQTT_device_core(); // for GSM client internet interface
   boolean flagToken = false;
   String client_id;
-  // String unixtTime;
   void setAuthMagellan(String _thingIden, String _thingSecret, String _imei = "none"); // add on
   void begin(boolean builtInSensor = false);
-  void begin(String _thingIden, String _thingSencret, String _imei, unsigned int Zone = Production, uint16_t bufferSize = 1024, boolean builtInSensor = true);
+  void begin(String _thingIden, String _thingSencret, String _imei,  uint16_t bufferSize = 1024, boolean builtInSensor = true);
   void beginCentric();
   void beginCustom(String _client_id, boolean builtInSensor, String _host, int _port, uint16_t bufferSize); //
-  void begin(String _client_id, boolean buildInSensor = true, unsigned int Zone = Production, uint16_t bufferSize = 1024); //
+  void begin(String _client_id, boolean buildInSensor = true,  uint16_t bufferSize = 1024); //
   String getHostName(); //
   void getBoardInfo(); //
   String getIMEI();
@@ -162,7 +159,7 @@ public:
   boolean registerResponseReport(int format = JSON);
   boolean registerResponseReportTimestamp();
   boolean registerResponseHeartbeat(int format = JSON);
-  boolean reportTimestamp(String timestamp, String JSONpayload, unsigned int timestamp_type = SET_UNIXTS); // Json Payload
+  boolean reportTimestamp(String timestamp, String JSONpayload); // Json Payload
   boolean heartbeat(); //
   void heartbeat(unsigned int triger_ms); //
   boolean registerConfig(int format = JSON); //  PTA and JSON
@@ -212,11 +209,7 @@ public:
   void interval_ms(unsigned long ms, func_callback_ms cb_ms);
   void registerList(func_callback_registerList cb_regisList);
   
-  // interface MAGELLANJSON 
   StaticJsonDocument<256> docJson;
-
-  // StaticJsonDocument<1024> docBuild;
-  // StaticJsonDocument<512> docClientConf;
 
   String deserialControlJSON(String jsonContent);
   JsonObject deserialJson(String jsonContent);
@@ -255,11 +248,9 @@ public:
   void setChunkSize(size_t Chunksize);
   static OTA_INFO OTA_info;
   static func_callback_registerList duplicate_subs_list; //ver.1.2.0
-  ///////////////
 
 private:
   int _default_bufferSize = 1024;
-  // BuiltinSensor mySensor;
   void reconnect(); //add on
   void checkConnection(); //
   void getEndPoint(); //get end point from centric
@@ -274,8 +265,6 @@ private:
   boolean flagRegisterEndPoint= false; // 
   boolean flagGetEndPoint = false; // 
   boolean flagRegisterToken = false; // 
-  boolean flagReportRetry = false;
-  boolean flagAuthMagellan = false;
 
   boolean registerToken(); //
   boolean requestToken(); //
@@ -302,6 +291,12 @@ private:
   String token;
   String _debug;
   int port;
+
+  void dead_reconnect_handler();
+  const int threshold_dead_reconnect_time = 7500;
+  ulong fallback_dead_reconnect_time = 0;
+  ulong cnt_dead_reconnect_time = 0;
+  const int max_cnt_dead_reconnect_time = 5;
 
 protected:
   PubSubClient *client = NULL;

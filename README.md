@@ -124,7 +124,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 
 ### สมัคร AIS Playground และ Magellan Platform
 
- * เข้าไปที่ https://magellan.ais.co.th/ กด REGISTER เพื่อสมัครสมาชิก หากไม่มี Account ของ AIS Playground ให้กดเลือก [Register](https://apisgl.ais.co.th/auth/v3.1/oauth/authorize?response_type=code&client_id=iQftE1wqrGJMCbco8D4MADHySRZpgMXlI5tU3sBYNmY%3D&redirect_uri=https%3A%2F%2Fmagellan.ais.co.th%2F&state=sgl&scope=profile#) กรอกข้อมูลแล้วกด ปุ่ม Done จากนั้นรอ Email ยืนยัน 
+ * เข้าไปที่ https://enterprise-magellan.ais.co.th/ กด REGISTER เพื่อสมัครสมาชิก หากไม่มี Account ของ AIS Playground ให้กดเลือก [Register](https://apisgl.ais.co.th/auth/v3.1/oauth/authorize?response_type=code&client_id=iQftE1wqrGJMCbco8D4MADHySRZpgMXlI5tU3sBYNmY%3D&redirect_uri=https%3A%2F%2Fmagellan.ais.co.th%2F&state=sgl&scope=profile#) กรอกข้อมูลแล้วกด ปุ่ม Done จากนั้นรอ Email ยืนยัน 
  * เมื่อได้รับ Email ยืนยันเรียบร้อยแล้ว สามารถ Login ใช้งาน Magellan Platform ได้ผ่าน Email ที่สมัครไว้
 
 ### ลงทะเบียน Device และสร้างโปรเจค
@@ -277,7 +277,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 ใช้เชื่อมต่อ รับ-ส่งข้อมูลกับ Azure IoT Central มีคำสั่งเหมือนกับ `AzureIoTHub.h` ทุกประการ ยกเว้นตอนสร้างออปเจค ให้สร้างโดยใช้คำสั่ง `AzureIoTCentral iot;` แทน
  <a name="SDK_MAGELLAN"></a>
 
-![Library Version](https://img.shields.io/badge/SDK_Magellan_4G_Board_Version-1.2.0-blue)
+![Library Version](https://img.shields.io/badge/SDK_Magellan_4G_Board_Version-1.2.1-blue)
 ### `#include <MAGELLAN_SIM7600E_MQTT.h>`
 
 ใช้เชื่อมต่อ รับ-ส่งข้อมูลกับ Magellan Platform ด้วยโปรโตคอล MQTT (Message Queuing Telemetry Transport)
@@ -307,6 +307,8 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 
  * `Subscribes (lists of subscribe)` 
    * `magel.subscribes.([](){ Function Register Subscribe Here })` ใช้ Subscribe Topic หรือ Subscribe Function ภายใน Function subscribes นี้เมื่อมีการ connect หรือ reconnect ตัว function นี้จะ triger function ที่บรรจุไว้ภายในให้อัตโนมัติให้อัตโนมัติเมื่ออุปกรณ์สามารถเชื่อมต่อ Magellan Platform ได้
+* `Subscribe Auto`
+   * `magel.subscribesHandler.([](){ Function Register Subscribe Here })` ใช้สำหรับ Handle Subscribe และ Resume topic ที่จะ Subscribe แต่ไม่จำเป็นต้องเรียก Function magel.subscribe.xxx แล้วเนื่องจาก function นี้จะทำการ subscribe topic ตาม Callback ที่เราได้ Register ไว้ไม่ว่าจะเป็น Control, ServerConfig,etc.
  # วิธีใช้งาน Subscribes
 ```cpp
    void loop()
@@ -336,9 +338,32 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
      /* do something */
    }
 ```
+## 🎉 NEW version 1.2.1 (auto subscribe follow by Register Callback)
+```cpp
+   void doSomeThingOnceAfterReconnect(){
+
+      Serial.println("Connected!!!");
+   }
+
+   void loop()
+   {
+     magel.loop();
+     magel.subscribesHandler(doSomeThingOnceAfterReconnect);
+     /* do something */
+   }
+```
+## 🎉 ใน version 1.2.1 Magellan SDK ได้มีการเปลี่ยน FS library 
+  * Default จาก `SPIFFS` มาใช้งานเป็น `LittleFS` หาต้องการใช้งาน SPIFFS
+  ให้ `Declare Macro` ไว้เหนือการ Include Magellan SDK ดังนี้
+  ```cpp
+  #include <Arduino.h>
+  #define MG_USE_SPIFFS
+  #include <MAGELLAN_SIM7600E_MQTT.h>
+  ```
  
  * `Interval timer` 
-   * `magel.interval(unsigned int second, []() { function here })` ใช้กำหนดช่วงเวลาให้ Function ที่ประกาศภายใน Interval ทำงานในแต่ละรอบโดยมีหน่วยเป็น Second   
+   * `magel.interval(unsigned int second, []() { function here })` ใช้กำหนดช่วงเวลาให้ Function ที่ประกาศภายใน Interval ทำงานในแต่ละรอบโดยมีหน่วยเป็น Second    
+     ### ⚠️ `magel.interval` ใน 1 loop function timer ใช้ได้แค่ 1 อันเท่านั้นหากใช้งานมากกว่า 1 function จะทำงานแค่บรรทัดที่เขียนไว้ล่างสุด.
 >ℹ️ Information`Function "Interval" เป็น Function optional เท่านั้น สามารถใช้ function timer ทดแทนได้`
 
  * `Check Connection` 
@@ -387,7 +412,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * `.setDuration(unsigned int duration)`
    * `.generateMsgId()`
 
->⚠️ Warning`หากมีการเปิดใช้งาน enabled retransmit ด้วย setEnabled จะมีการ report จนกว่าจะได้ Response, msgId โดยทุกๆ duration และ repeat ที่ตั้งค่าไว้ซึ่งจะใช้เวลาในการทำงาน เนื่องจากต้องรอการตอบกลับ ทั้งนี้ขึ้นอยู่กับคุณภาพของสัญญาณของ network connection ของอุปกรณ์แต่สามารถมั่นใจได้ว่า message ของที่ส่งไปถึงหรือไม่ หรือในกรณีผิดพลาดสามารถ track ได้จากจาก`[Status code](https://magellan.ais.co.th/api-document/3/3) 
+>⚠️ Warning`หากมีการเปิดใช้งาน enabled retransmit ด้วย setEnabled จะมีการ report จนกว่าจะได้ Response, msgId โดยทุกๆ duration และ repeat ที่ตั้งค่าไว้ซึ่งจะใช้เวลาในการทำงาน เนื่องจากต้องรอการตอบกลับ ทั้งนี้ขึ้นอยู่กับคุณภาพของสัญญาณของ network connection ของอุปกรณ์แต่สามารถมั่นใจได้ว่า message ของที่ส่งไปถึงหรือไม่ หรือในกรณีผิดพลาดสามารถ track ได้จากจาก`[Status code](https://enterprise-magellan.ais.co.th/learningcenter/api-document/mqtt-apis-v2#response-status-codes) 
 
 # วิธีใช้งาน Report with message id ด้วย RetransmitSetting [เพิ่มเติม](#retransmitStructor)
 ```cpp
@@ -462,7 +487,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
   void setup()
   {
     Serial.begin(115200);
-    setting.endpoint = "magellan.ais.co.th"; //if not set *default: magellan.ais.co.th
+    setting.endpoint = "device-entmagellan.ais.co.th"; //default is device-entmagellan.ais.co.th
     setting.clientBufferSize = defaultOTAbuffer; // if not set *default: 1024
     magel.begin(setting);
     //* callback getControl
@@ -475,7 +500,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
   }
 ```
 * `หลังจาก decleare function callback getControl มาแล้วไม่ว่าจะ format 'JSON' หรือ 'Plaintext' ก็ตามหากทำการ triger control จาก widget บน platform เพื่อให้อุปกรณ์ได้รับค่า control แต่ตัวอุปกรณ์เกิด disconnect หรือปัญหาที่ไม่ได้รับ message value ทัน event นั้นๆ สามารถเรียกขอค่า control ที่ค้างหรือยังไม่ได้ Acknowledge ได้ดังนี้`
->ℹ️ Information`หากทำการ Request control แล้วไม่มีค่าค้างอยู่ค่าที่จะได้รับเข้ามาใน Callback getControl จะมีแค่ code 40400 หากมีค้างอยู่จะได้รับ code 20000  และ value control` [Status code](https://magellan.ais.co.th/api-document/3/3)
+>ℹ️ Information`หากทำการ Request control แล้วไม่มีค่าค้างอยู่ค่าที่จะได้รับเข้ามาใน Callback getControl จะมีแค่ code 40400 หากมีค้างอยู่จะได้รับ code 20000  และ value control` [Status code](https://enterprise-magellan.ais.co.th/learningcenter/api-document/mqtt-apis-v2#response-status-codes)
 # วิธีการ Request control value ที่ค้างอยู่ (ยังไม่ได้รับการ Acknowledge จากอุปกรณ์) 
 ```cpp
    void loop()
@@ -509,7 +534,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
   void setup()
   {
     Serial.begin(115200);
-    setting.endpoint = "magellan.ais.co.th"; //if not set *default: magellan.ais.co.th
+    setting.endpoint = "device-entmagellan.ais.co.th"; //default is device-entmagellan.ais.co.th
     magel.begin(setting);
     magel.clientConfig.add("location", "15.0000, 58.0000"); //* update location once after connect platform
     magel.clientConfig.add("battery", 100); //* update battery level once after connect platform
@@ -538,7 +563,6 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
   void setup()
   {
     Serial.begin(115200);
-    setting.endpoint = "magellan.ais.co.th"; //if not set *default: magellan.ais.co.th
     magel.begin(setting);
     magel.getResponse(UNIXTIME, [](EVENTS events) 
     { //* for get unixTime from magellan

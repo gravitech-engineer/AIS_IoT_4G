@@ -1,6 +1,6 @@
 /*
-Author:(POC Device Magellan team)      
-Create Date: 25 April 2022. 
+Author:(POC Device Magellan team)
+Create Date: 25 April 2022.
 Modified: 16 february 2023.
 Released for private usage.
 */
@@ -14,14 +14,20 @@ Released for private usage.
 #include "./FileSystem.h"
 #include "./BuiltinSensor.h"
 #include "./manageConfigOTAFile.h"
-#define useGSMClient  0
+#include "./APISubscribeHandler.h"
+#define useGSMClient 0
 #define useExternalClient 1
-#include "SPIFFS.h"
 
+// Lightweight version macros - no runtime String concatenation
 #define _major_ver 1
 #define _feature_ver 2
-#define _enhance_ver 0
-#define lib_ver "v"+String(_major_ver) +"."+ String(_feature_ver)+"."+String(_enhance_ver)
+#define _enhance_ver 3
+
+// Compile-time string concatenation using preprocessor
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+#define lib_ver "v" TOSTRING(_major_ver) "." TOSTRING(_feature_ver) "." TOSTRING(_enhance_ver)
+#define lib_model_device "AIS 4G Board"
 
 class Attribute_MQTT_core
 {
@@ -56,7 +62,7 @@ public:
     static String ext_EndPoint;
     static int clientNetInterface;
     static Client *ClientNET;
-    static PubSubClient *mqtt_client; //MQTT Client
+    static PubSubClient *mqtt_client; // MQTT Client
     static unsigned int fw_count_chunk;
     static unsigned int fw_total_size;
     static unsigned int chunk_size;
@@ -68,13 +74,13 @@ public:
     static size_t calculate_chunkSize;
     static boolean inProcessOTA;
     static boolean startReqDownloadOTA;
-    static String sensorJSON_str;
-    static String clientConfigJSON_str;
+    // static String sensorJSON_str;
+    // static String clientConfigJSON_str;
     static boolean useBuiltInSensor;
     static StaticJsonDocument<512> docClientConf;
     static DynamicJsonDocument *adjDoc;
     static DynamicJsonDocument *docSensor;
-    //1.2.0
+    // 1.2.0
     static boolean checkUpdate_inside;
     static unsigned int delayCheckUpdate_inside;
     static unsigned int delayRequest_download;
@@ -87,6 +93,12 @@ public:
     static boolean isMatchMsgId;
     static boolean reqRetransmit;
 
+    // 1.2.1
+    static SubscribesCheckLists sub_check_list;
+
+    // 1.2.2
+    static unsigned long refPercentOTA;
+    static bool flagPrintProgressOTA;
 };
 extern Attribute_MQTT_core attr;
 #endif
