@@ -1606,13 +1606,23 @@ void MAGELLAN_MQTT_device_core::reconnectMagellan()
     srand(time(NULL));
     int randnum = rand() % 10000;   // generate number concat in Client id
     int randnum_2 = rand() % 10000; // generate number concat in Client id
-    String client_idBuff = client_id + "_" + String(randnum) + "_" + String(randnum_2);
+    if (attr.clientNetInterface == useExternalClient && this->prefixClient != "4G_TINY_B_")
+    {
+      this->prefixClient = "4G_B_EXT_Client_";
+    }
+    else if (attr.clientNetInterface == useGSMClient)
+    {
+      this->prefixClient = "4G_B_";
+    }
+    String client_idBuff = this->prefixClient + this->thingIden + "_" + String(randnum) + "_" + String(randnum_2) + "_" + String(lib_ver);
+    client_id = client_idBuff;
     Serial.println(F("Attempting MQTT connection ..."));
     this->client->setServer(this->host.c_str(), this->port);
     this->client->setCallback(msgCallback_internalHandler);
     Serial.println("Connecting Magellan on: " + String(this->host) + ", Port: " + String(this->port));
     if (this->client->connect(client_idBuff.c_str(), this->thingIden.c_str(), this->thingSecret.c_str()))
     {
+      client_id = client_idBuff;
       Serial.println("Client id: " + client_idBuff + " is connected");
       recon_attempt = 0;
     }
@@ -1656,18 +1666,18 @@ void MAGELLAN_MQTT_device_core::magellanCentric(const char *_host, int _port)
       srand(time(NULL));
       int randnum = rand() % 10000;   // generate number concat in Client id
       int randnum_2 = rand() % 10000; // generate number concat in Client id
-      String client_idBuff = client_id + "_" + String(randnum) + "_" + String(randnum_2);
+      String client_idBuff = "Centric_" + this->thingIden + "_" + String(randnum) + "_" + String(randnum_2) + "_" + String(lib_ver);
       Serial.println(F("#Attempting connection ..."));
       this->client->setServer(_host, _port);
       this->client->setCallback(msgCallback_internalHandler);
-      Serial.println("Connecting Magellan on: " + String(this->host) + ", Port: " + String(this->port));
+      Serial.println("Connecting Centric Magellan on: " + String(_host) + ", Port: " + String(_port));
       String thisIdenCentric = "Centric." + thingIden;
+      this->client->setBufferSize(this->_default_bufferSize);
       if (this->client->connect(client_idBuff.c_str(), thisIdenCentric.c_str(), this->thingSecret.c_str()))
       {
         Serial.println("Client id : " + client_idBuff + " is connected");
         recon_attempt = 0;
       }
-
       else
       {
         Serial.print(F("failed, reconnect ="));
@@ -1695,7 +1705,7 @@ void MAGELLAN_MQTT_device_core::getEndPoint()
   {
     String topic = "api/v2/things/" + this->thingIden + "/" + this->thingSecret + "/server/destination/response";
     this->flagRegisterEndPoint = this->client->subscribe(topic.c_str());
-    Serial.println("# Register destination server: " + String(flagRegisterEndPoint));
+    Serial.println("# Register destination server: " + String(flagRegisterEndPoint ? "Success" : "Fail"));
   }
   while (!flagGetEndPoint)
   {
@@ -1722,8 +1732,18 @@ void MAGELLAN_MQTT_device_core::getEndPoint()
     srand(time(NULL));
     int randnum = rand() % 10000;   // generate number concat in Client id
     int randnum_2 = rand() % 10000; // generate number concat in Client id
-    String client_idBuff = client_id + "_" + String(randnum) + "_" + String(randnum_2);
-    this->beginCustom(client_idBuff, true, centric.endPoint_IP, (centric.endPoint_PORT).toInt(), this->_default_bufferSize);
+    if (attr.clientNetInterface == useExternalClient && this->prefixClient != "4G_TINY_B_")
+    {
+      this->prefixClient = "4G_B_EXT_Client_";
+    }
+    else if (attr.clientNetInterface == useGSMClient)
+    {
+      this->prefixClient = "4G_B_";
+    }
+    String client_idBuff = this->prefixClient + this->thingIden + "_" + String(randnum) + "_" + String(randnum_2) + "_" + String(lib_ver);
+    client_id = client_idBuff;
+    // this->beginCustom(client_idBuff, true, centric.endPoint_IP, (centric.endPoint_PORT).toInt(), this->_default_bufferSize);
+    this->beginCustom(client_idBuff, true, centric.endPoint_DOMAIN, (centric.endPoint_PORT).toInt(), this->_default_bufferSize);
   }
 }
 
@@ -1746,20 +1766,24 @@ void MAGELLAN_MQTT_device_core::beginCustom(String _client_id, boolean builtInSe
     if ((this->thingIden == NULL) && (this->thingSecret == NULL))
     {
       initialBoard();
-      // getRadio();
     }
   }
-  else if (attr.clientNetInterface == useExternalClient)
+  else if (attr.clientNetInterface == useExternalClient && this->prefixClient == "4G_TINY_B_")
+  {
+    Serial.println("# AIS 4G Board [TinyGSM]");
+  }
+  else 
   {
     Serial.println("# External Client");
   }
-  if (builtInSensor)
+
+  if (builtInSensor && attr.clientNetInterface == useGSMClient)
   {
     Serial.println(F("# Using Builtin SENSOR"));
     attr.useBuiltInSensor = builtInSensor;
     mySensor.begin();
   }
-  delay(5000);
+  delay(3000);
   getRadio();
   this->host = _host;
   this->port = _port;
@@ -1767,9 +1791,9 @@ void MAGELLAN_MQTT_device_core::beginCustom(String _client_id, boolean builtInSe
   if (bufferSize > _default_OverBufferSize)
   {
     Serial.print(F("# Buffer size from you set over than 8192 set buffer to: "));
-    Serial.println();
+    Serial.println(_default_OverBufferSize);
     this->setBufferSize(_default_OverBufferSize);
-    attr.calculate_chunkSize = _default_bufferSize / 2;
+    attr.calculate_chunkSize = _default_OverBufferSize / 2;
   }
   else
   {
@@ -2039,6 +2063,7 @@ boolean MAGELLAN_MQTT_device_core::requestEndpoint()
     }
     if (millis() - previouseMillis > 10000)
     {
+
       previouseMillis = millis();
       String topic = "api/v2/things/" + thingIden + "/" + thingSecret + "/server/destination/request";
       Pub_status = this->client->publish(topic.c_str(), " ");
@@ -2046,9 +2071,10 @@ boolean MAGELLAN_MQTT_device_core::requestEndpoint()
       Serial.print("# Request Endpoint: " + _debug);
       if (cnt_attempt > 0)
       {
-        Serial.print(" Attempt >> " + String(cnt_attempt - 1) + " time");
+        Serial.print(" Attempt >> " + String(cnt_attempt) + " time");
       }
       Serial.println();
+      this->client->loop();
       cnt_attempt++;
     }
   }
@@ -3176,3 +3202,11 @@ boolean MAGELLAN_MQTT_device_core::unregisterResponseHeartbeat(int format)
   return Sub_status;
 }
 ////////////////// Unsub //////////
+
+void MAGELLAN_MQTT_device_core::disconnect()
+{
+  if (this->client->connected())
+  {
+    this->client->disconnect();
+  }
+}

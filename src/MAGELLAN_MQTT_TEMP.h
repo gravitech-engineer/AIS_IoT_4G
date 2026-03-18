@@ -21,31 +21,47 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-support SIMCOM SIM7600E(AIS 4G Board)
+support esp32, esp8266
 
 Author:(POC Device Magellan team)
 Create Date: 25 April 2022.
-Modified: 22 may 2023.
+Modified: 22 dec 2025.
 */
-#ifndef MAGELLAN_SIM7600E_MQTT_h
-#define MAGELLAN_SIM7600E_MQTT_h
+
+/*
+ * This file includes code from TinyGSM
+ * Copyright (c) 2016-2024 Volodymyr Shymanskyy
+ * Licensed under LGPL-3.0-or-later
+ *
+ * Modifications:
+ *  - Adapted for AIS 4G Board
+ */
+
+
+#ifndef MAGELLAN_MQTT_TEMP_H
+#define MAGELLAN_MQTT_TEMP_H
 #include <Arduino.h>
 #include "utils/MAGELLAN_MQTT_device_core.h"
-#include <Update.h>
 
-struct Setting
+#ifdef ESP32
+#include <Update.h>
+#elif defined ESP8266
+
+#endif
+
+struct MagellanSetting
 {
-  String ThingIdentifier = "null"; // ICCID, ThingKey, ThingIdentifier
-  String ThingSecret = "null";     // IMSI, ThingSecret
+  String ThingIdentifier = "null";
+  String ThingSecret = "null";
   String IMEI = "null";
   size_t clientBufferSize = defaultBuffer;
-  boolean builtInSensor = true;
   String endpoint = _host_production;
   int port = mgPort;
 #ifdef BYPASS_REQTOKEN
   String ThingToken = "null";
 #endif
 };
+extern MagellanSetting setting;
 
 struct RetransmitSetting
 {
@@ -89,35 +105,36 @@ struct RetransmitSetting
   }
 };
 
+typedef std::function<void(void)> cb_on_disconnect;
+
 typedef struct
 {
   bool statusReport = false;
   int msgId = -1;
 } ResultReport;
 
-class MAGELLAN_SIM7600E_MQTT : private MAGELLAN_MQTT_device_core
+class MAGELLAN_MQTT_TEMP : private MAGELLAN_MQTT_device_core
 {
 private:
-// 1.2.1
+  void checkUpdate_inside();
+  void beginCustom(String _thingIden, String _thingSencret, String _imei, String _host = _host_production, int _port = mgPort, uint16_t bufferSize = defaultBuffer);
+  // 1.1.1
 #ifdef BYPASS_REQTOKEN
   void setManualToken(String token_);
 #endif
-  void begin(String _thingIden, String _thingSencret, String _imei, uint16_t bufferSize = 1024, boolean builtinSensor = true);
-
 public:
-  MAGELLAN_SIM7600E_MQTT();
-  MAGELLAN_SIM7600E_MQTT(Client &client);
-  void begin(Setting _setting);
-  void begin(uint16_t bufferSize = 1024, boolean builtInSensor = true);
-  void beginCustom(String _client_id, boolean buildinSensor = true, String _host = _host_production, int _port = mgPort, uint16_t bufferSize = 1024);
-  void beginCustom(String _thingIden, String _thingSencret, String _imei, String _host = _host_production, int _port = mgPort, uint16_t bufferSize = 1024, boolean builtinSensor = true);
-  void loop();
+  MAGELLAN_MQTT_TEMP(Client &_Client);
+  boolean isConnected();
+  virtual void reconnect();
+  void disconnect();
+  void begin(MagellanSetting _setting = setting);
+  virtual void loop();
   void heartbeat(unsigned int second);
-
+  void heartbeat();
   void subscribes(func_callback_registerList cb_subscribe_list);
-
-  // 1.2.1
+  // 1.1.2
   void subscribesHandler(func_callback_registerList cb_onConnected = NULL); // auto Subscribe
+
   void interval(unsigned long second, func_callback_ms cb_interval);
   boolean getServerTime();
   void getControl(String focusOnKey, ctrl_handleCallback ctrl_callback);
@@ -130,11 +147,11 @@ public:
   void getServerConfigJSON(conf_Json_handleCallback conf_json_callback);
   void getServerConfigJSON(conf_JsonOBJ_handleCallback jsonOBJ_cb);
   void getResponse(unsigned int eventResponse, resp_callback resp_cb);
-  String deserializeControl(String sensorsControls);
-  boolean isConnected();
-
-  // ver.1.2.0
+  String deserializeControl(String controls);
+  // v1.1.0
   boolean matchingMsgId(int sendingMsgId, int incomingMsgId);
+  void onDisconnect(cb_on_disconnect cb_disc);
+  //     //
   struct Sensor
   {
   public:
@@ -146,7 +163,7 @@ public:
     void remove(String sensorKey);
     String toJSONString();
     void report();
-    ResultReport report(RetransmitSetting &retransSetting); // 1.2.0
+    ResultReport report(RetransmitSetting &retransSetting);
     void update(String sensorKey, String sensorValue);
     void update(String sensorKey, const char *sensorValue);
     void update(String sensorKey, int sensorValue);
@@ -166,7 +183,6 @@ public:
 
   private:
     ResultReport sendRetransmit(String sensors, RetransmitSetting retrans);
-
   } sensor;
   struct ClientConfig
   {
@@ -204,24 +220,24 @@ public:
 
   struct Information
   {
-    String getHostName(); //
-    void getBoardInfo();  //
-    String getICCID();
-    String getIMSI();
-    String getIMEI();
+    String getThingIdentifier(); // have value after connect
+    String getThingSecret();     // have value after connect
+    String getHostName();
     String getThingToken();
+    void getBoardInfo();
   } info;
 
   struct Report
   {
+    // ver.1.1.0
   public:
-    boolean send(String sensors);
-    boolean send(String sensors, int msgId); // 1.2.0
-    boolean send(String reportKey, String reportValue);
-    boolean send(int UnixtsTimstamp, String sensors);
-    boolean send(String reportKey, String reportValue, int msgId);                              // 1.2.0
-    ResultReport send(String sensors, RetransmitSetting &retransSetting);                       // 1.2.0
-    ResultReport send(String reportKey, String reportValue, RetransmitSetting &retransSetting); // 1.2.0
+    bool send(String sensors);
+    bool send(String sensors, int msgId); // 1.1.0
+    bool send(String reportKey, String reportValue);
+    bool send(String reportKey, String reportValue, int msgId); // 1.1.0
+    bool send(int UnixtsTimstamp, String sensors);
+    ResultReport send(String sensors, RetransmitSetting &retransSetting);                       // 1.1.0
+    ResultReport send(String reportKey, String reportValue, RetransmitSetting &retransSetting); // 1.1.0
     int generateMsgId();
 
   private:
@@ -231,8 +247,8 @@ public:
     ResultReport sendWithMsgId(String reportKey, String reportValue, int msgId);
     ResultReport sendRetransmit(String sensors);
     ResultReport sendRetransmit(String reportKey, String reportValue);
-    ResultReport sendRetransmit(String sensors, RetransmitSetting retransSetting);
-    ResultReport sendRetransmit(String reportKey, String reportValue, RetransmitSetting retransSetting);
+    ResultReport sendRetransmit(String sensors, RetransmitSetting retrans);
+    ResultReport sendRetransmit(String reportKey, String reportValue, RetransmitSetting retrans);
 
   } report;
 
@@ -282,11 +298,10 @@ public:
   struct OnTheAir
   {
   public:
-    // int checkUpdate();
-    OTA_state checkUpdate(); // 1.2.1
     OTA_INFO utility();
     void autoUpdate(boolean flagSetAuto = true);
     boolean getAutoUpdate();
+    OTA_state checkUpdate();
     void executeUpdate();
     String readDeviceInfo();
     struct Downloads
@@ -296,13 +311,13 @@ public:
     } download;
 
   private:
-    boolean getFirmwareInfo();
     void begin();
+    boolean getFirmwareInfo();
     boolean start();
     void handle(boolean OTA_after_getInfo = true);
     void setChecksum(String md5Checksum);
     boolean updateProgress(String OTA_state, String description);
-    boolean downloadFirmware(unsigned int fw_part = 0, size_t part_size = 0);
+    boolean downloadFirmware(unsigned int fw_chunkpart = 0, size_t chunk_size = 0);
     struct Subscribe
     {
       boolean firmwareInfo();
@@ -315,47 +330,6 @@ public:
     } unsubscribe;
 
   } OTA;
-
-  struct GPSmodule
-  {
-    boolean available();
-    float readLatitude();
-    float readLongitude();
-    float readAltitude();
-    float readSpeed();
-    float readCourse();
-    String readLocation();
-
-    void setLocalTimeZone(int timeZone);
-    int getDay();
-    String getDayToString();
-    int getMonth();
-    String getMonthToString();
-    int getYear();
-    String getYearToString();
-    int getHour();
-    String getHourToString();
-    int getMinute();
-    String getMinuteToString();
-    int getSecond();
-    String getSecondToString();
-    String getDateTimeString();  //*
-    String getUniversalTime();   //*
-    unsigned long getUnixTime(); //*
-
-  } gps;
-  struct BuiltinSensor
-  {
-    float readTemperature();
-    float readHumidity();
-  } builtInSensor;
-  struct Centric
-  {
-  public:
-    void begin(uint16_t setBufferSize = defaultBuffer);
-    void begin(Setting _setting);
-  } centric;
-
   struct Utility
   {
     String toDateTimeString(unsigned long unixtTime, int timeZone);
@@ -367,9 +341,5 @@ public:
 protected:
   static MAGELLAN_MQTT_device_core *coreMQTT;
 };
-extern Setting sim7600_setting;
-namespace
-{
-  Setting &setting = sim7600_setting;
-}
 #endif
+
