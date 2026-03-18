@@ -22,9 +22,9 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 support SIMCOM SIM7600E(AIS 4G Board)
- 
-Author:(POC Device Magellan team)      
-Create Date: 25 April 2022. 
+
+Author:(POC Device Magellan team)
+Create Date: 25 April 2022.
 Modified: 22 may 2023.
 Released for private usage.
 */
@@ -42,14 +42,14 @@ Released for private usage.
 #include "Attribute_MQTT_core.h"
 #include "BuiltinSensor.h"
 
-//Response Payload format some function can be set.
+// Response Payload format some function can be set.
 #define lib_version lib_ver
 #define major_version _major_ver
 #define feature_version _feature_ver
 #define enhance_version _enhance_ver
 
-#define PLAINTEXT 0 //Plaintext
-#define JSON 1 //Json
+#define PLAINTEXT 0 // Plaintext
+#define JSON 1      // Json
 
 #define M_ERROR 0
 #define TOKEN 1
@@ -67,6 +67,7 @@ Released for private usage.
 
 #define mgPort 1883
 #define hostCentric "centric-magellan.ais.co.th"
+#define mgCentricPort mgPort
 
 #define _host_production "device-entmagellan.ais.co.th"
 
@@ -74,15 +75,17 @@ Released for private usage.
 #define defaultBuffer defaultOTABuffer
 #define _default_OverBufferSize 8192
 
-//1.2.1
-enum class OTA_state{
-    UNKNOWN_STATE = -1,
-    OUT_OF_DATE,
-    UP_TO_DATE,
-    NOT_AVAILABLE_STATE,
-  };
+// 1.2.1
+enum class OTA_state
+{
+  UNKNOWN_STATE = -1,
+  OUT_OF_DATE,
+  UP_TO_DATE,
+  NOT_AVAILABLE_STATE,
+};
 
-typedef struct {
+typedef struct
+{
   String Topic;
   String Key;
   String Action;
@@ -90,33 +93,33 @@ typedef struct {
   String RESP;
   unsigned int CODE;
   unsigned int PayloadLength;
-  int MsgId = -1;   //update 1.2.0 msgId
-}EVENTS;
-typedef struct {
+  int MsgId = -1; // update 1.2.0 msgId
+} EVENTS;
+typedef struct
+{
   String endPoint_IP;
   String endPoint_DOMAIN;
   String endPoint_PORT;
-}Centric;
+} Centric;
 
-typedef struct {
-    boolean isReadyOTA = false;
-    OTA_state firmwareIsUpToDate = OTA_state::UNKNOWN_STATE; //1.2.1
-    boolean inProcessOTA = false;
-    unsigned int firmwareTotalSize = 0;
-    String firmwareName = "UNKNOWN";
-    String firmwareVersion = "UNKNOWN";
-    String checksum = "UNKNOWN";
-    String checksumAlgorithm = "UNKNOWN";
-}OTA_INFO;
-
-
+typedef struct
+{
+  boolean isReadyOTA = false;
+  OTA_state firmwareIsUpToDate = OTA_state::UNKNOWN_STATE; // 1.2.1
+  boolean inProcessOTA = false;
+  unsigned int firmwareTotalSize = 0;
+  String firmwareName = "UNKNOWN";
+  String firmwareVersion = "UNKNOWN";
+  String checksum = "UNKNOWN";
+  String checksumAlgorithm = "UNKNOWN";
+} OTA_INFO;
 
 typedef std::function<void(String payload)> ctrl_handleCallback;
-typedef std::function<void(String payload)> ctrl_Json_handleCallback;  
-typedef std::function<void(JsonObject docs)> ctrl_JsonOBJ_handleCallback;  
+typedef std::function<void(String payload)> ctrl_Json_handleCallback;
+typedef std::function<void(JsonObject docs)> ctrl_JsonOBJ_handleCallback;
 typedef std::function<void(String payload)> conf_handleCallback;
-typedef std::function<void(String payload)> conf_Json_handleCallback;  
-typedef std::function<void(JsonObject docs)> conf_JsonOBJ_handleCallback;  
+typedef std::function<void(String payload)> conf_Json_handleCallback;
+typedef std::function<void(JsonObject docs)> conf_JsonOBJ_handleCallback;
 
 typedef std::function<void(String key, String value)> ctrl_PTAhandleCallback;
 typedef std::function<void(String key, String value)> conf_PTAhandleCallback;
@@ -124,10 +127,8 @@ typedef std::function<void(EVENTS event)> resp_callback;
 
 typedef std::function<void(void)> func_callback_registerList;
 
-
-
-//Client Internet interface connection
-#define useGSMClient  0
+// Client Internet interface connection
+#define useGSMClient 0
 #define useExternalClient 1
 
 typedef std::function<void(void)> func_callback_ms;
@@ -135,51 +136,52 @@ typedef std::function<void(void)> func_callback_ms;
 class MAGELLAN_MQTT_device_core
 {
 public:
-  MAGELLAN_MQTT_device_core(Client& client); // for customize client internet interface
-  MAGELLAN_MQTT_device_core(); // for GSM client internet interface
+  MAGELLAN_MQTT_device_core(Client &client); // for customize client internet interface
+  MAGELLAN_MQTT_device_core();               // for GSM client internet interface
   boolean flagToken = false;
+  String prefixClient;
   String client_id;
   void setAuthMagellan(String _thingIden, String _thingSecret, String _imei = "none"); // add on
   void begin(boolean builtInSensor = false);
-  void begin(String _thingIden, String _thingSencret, String _imei,  uint16_t bufferSize = 1024, boolean builtInSensor = true);
+  void begin(String _thingIden, String _thingSencret, String _imei, uint16_t bufferSize = 1024, boolean builtInSensor = true);
   void beginCentric();
   void beginCustom(String _client_id, boolean builtInSensor, String _host, int _port, uint16_t bufferSize); //
-  void begin(String _client_id, boolean buildInSensor = true,  uint16_t bufferSize = 1024); //
-  String getHostName(); //
-  void getBoardInfo(); //
+  void begin(String _client_id, boolean buildInSensor = true, uint16_t bufferSize = 1024);                  //
+  String getHostName();                                                                                     //
+  void getBoardInfo();                                                                                      //
   String getIMEI();
   String getIMSI();
   String getICCID();
   String readToken();
 
-  void magellanCentric(const char* _host = hostCentric, int _port = mgPort); //add on
+  void magellanCentric(const char *_host = hostCentric, int _port = mgCentricPort); // add on
   boolean reportSensor();
-  boolean report(String payload); //
+  boolean report(String payload);           //
   boolean report(String key, String value); //
   boolean registerResponseReport(int format = JSON);
   boolean registerResponseReportTimestamp();
   boolean registerResponseHeartbeat(int format = JSON);
   boolean reportTimestamp(String timestamp, String JSONpayload); // Json Payload
-  boolean heartbeat(); //
-  void heartbeat(unsigned int triger_ms); //
-  boolean registerConfig(int format = JSON); //  PTA and JSON
-  boolean registerConfig(String key);//
-  boolean registerControl(int format = JSON); //
-  boolean registerControl(String key); //
-  boolean registerTimestamp(int format = JSON); //
+  boolean heartbeat();                                           //
+  void heartbeat(unsigned int triger_ms);                        //
+  boolean registerConfig(int format = JSON);                     //  PTA and JSON
+  boolean registerConfig(String key);                            //
+  boolean registerControl(int format = JSON);                    //
+  boolean registerControl(String key);                           //
+  boolean registerTimestamp(int format = JSON);                  //
   boolean reqControl(String key);
   boolean reqControlJSON();
 
   ////// unsub ////////////////
-  boolean unregisterControl(int format = JSON);  //
-  boolean unregisterControl(String key); //
-  boolean unregisterConfig(int format = JSON); //  PTA and JSON
-  boolean unregisterConfig(String key); //
+  boolean unregisterControl(int format = JSON);   //
+  boolean unregisterControl(String key);          //
+  boolean unregisterConfig(int format = JSON);    //  PTA and JSON
+  boolean unregisterConfig(String key);           //
   boolean unregisterTimestamp(int format = JSON); //
   boolean unregisterResponseReport(int format = JSON);
   boolean unregisterResponseReportTimestamp();
   boolean unregisterResponseHeartbeat(int format = JSON);
-  ////// unsub ////////////////  
+  ////// unsub ////////////////
 
   void getControl(String key, ctrl_handleCallback ctrl_callback);
   void getControl(ctrl_PTAhandleCallback ctrl_pta_callback);
@@ -190,36 +192,36 @@ public:
   void getConfig(conf_PTAhandleCallback conf_pta_callback);
   void getConfigJSON(conf_Json_handleCallback conf_json_callback);
   void getConfigJSON(conf_JsonOBJ_handleCallback jsonOBJ_cb);
-  void getRESP(unsigned int resp_event ,resp_callback resp_cb);
+  void getRESP(unsigned int resp_event, resp_callback resp_cb);
 
-  boolean getTimestamp(); //
-  boolean reqConfigJSON(); //
-  boolean reqConfig(String key); //
-  boolean reportClientConfig(String payload); // 
+  boolean getTimestamp();                     //
+  boolean reqConfigJSON();                    //
+  boolean reqConfig(String key);              //
+  boolean reportClientConfig(String payload); //
   boolean isConnected();
   void loop(); //
-  void setMessageListener(void(*callback)(EVENTS, char*));
-  
+  void setMessageListener(void (*callback)(EVENTS, char *));
+
   void setManualToken(String _token);
   void acceptToken(EVENTS event);
-  
+
   boolean ACKControl(String key, String value);
   boolean ACKControl(String payload);
 
   void interval_ms(unsigned long ms, func_callback_ms cb_ms);
   void registerList(func_callback_registerList cb_regisList);
-  
+
   StaticJsonDocument<256> docJson;
 
   String deserialControlJSON(String jsonContent);
   JsonObject deserialJson(String jsonContent);
   void addSensor(String key, String value, JsonDocument &ref_docs);
-  void addSensor(String key, const char* value, JsonDocument &ref_docs);
+  void addSensor(String key, const char *value, JsonDocument &ref_docs);
   void addSensor(String key, int value, JsonDocument &ref_docs);
   void addSensor(String key, float value, JsonDocument &ref_docs);
   void addSensor(String key, boolean value, JsonDocument &ref_docs);
   void updateSensor(String key, String value, JsonDocument &ref_docs);
-  void updateSensor(String key, const char* value, JsonDocument &ref_docs);
+  void updateSensor(String key, const char *value, JsonDocument &ref_docs);
   void updateSensor(String key, int value, JsonDocument &ref_docs);
   void updateSensor(String key, float value, JsonDocument &ref_docs);
   void updateSensor(String key, boolean value, JsonDocument &ref_docs);
@@ -231,10 +233,10 @@ public:
   void clearSensorBuffer(JsonDocument &ref_docs);
 
   void setMQTTBufferSize(uint16_t size);
-  boolean CheckString_isDigit(String valid_payload); //
+  boolean CheckString_isDigit(String valid_payload);  //
   boolean CheckString_isDouble(String valid_payload); //
 
-  //OTA Feature//
+  // OTA Feature//
   void activeOTA(size_t part_size, boolean useChecksum = true);
   void handleOTA(boolean OTA_after_getInfo = true);
   boolean registerInfoOTA();
@@ -247,31 +249,33 @@ public:
   void setChecksum(String md5Checksum);
   void setChunkSize(size_t Chunksize);
   static OTA_INFO OTA_info;
-  static func_callback_registerList duplicate_subs_list; //ver.1.2.0
+  static func_callback_registerList duplicate_subs_list; // ver.1.2.0
+  void reconnect();                                      // add on
+  void disconnect();
+  void setCallback_msgHandle(); // add on
 
 private:
-  int _default_bufferSize = 1024;
-  void reconnect(); //add on
-  void checkConnection(); //
-  void getEndPoint(); //get end point from centric
-  boolean acceptEndPoint(String payload); //get end point from centric
-  void thingRegister(); //
-  void acceptToken(String payload); //
-  boolean setBufferSize(uint16_t size); //  default 256 (uplink 128 + downlink 128)
-  String byteToString(byte* payload, unsigned int length_payload); // convert byte* to string
-  void setCallback_msgHandle();
-  void initialBoard(); //
-  unsigned long previouseMillis = 0; //
-  boolean flagRegisterEndPoint= false; // 
-  boolean flagGetEndPoint = false; // 
-  boolean flagRegisterToken = false; // 
+  int _default_bufferSize = 1024;                                              // add on
+  void checkConnection();                                          //
+  void getEndPoint();                                              // get end point from centric
+  boolean acceptEndPoint(String payload);                          // get end point from centric
+  void thingRegister();                                            //
+  void acceptToken(String payload);                                //
+  boolean setBufferSize(uint16_t size);                            //  default 256 (uplink 128 + downlink 128)
+  String byteToString(byte *payload, unsigned int length_payload); // convert byte* to string
+  // void setCallback_msgHandle();
+  void initialBoard();                  //
+  unsigned long previouseMillis = 0;    //
+  boolean flagRegisterEndPoint = false; //
+  boolean flagGetEndPoint = false;      //
+  boolean flagRegisterToken = false;    //
 
-  boolean registerToken(); //
-  boolean requestToken(); //
+  boolean registerToken();   //
+  boolean requestToken();    //
   boolean requestEndpoint(); //
-  void reconnectMagellan(); //
-  int limit_attempt = 11; // 11 -> for atempt 10 request token
-  int cnt_attempt = 0; //
+  void reconnectMagellan();  //
+  int limit_attempt = 11;    // 11 -> for atempt 10 request token
+  int cnt_attempt = 0;       //
   int recon_attempt = 0;
   int MAXrecon_attempt = 10;
   unsigned long prev_time;
@@ -300,9 +304,7 @@ private:
 
 protected:
   PubSubClient *client = NULL;
-  GSMClient *gsm_client  = NULL;
+  GSMClient *gsm_client = NULL;
 };
 
 #endif
-
-
