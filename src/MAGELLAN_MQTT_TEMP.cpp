@@ -21,18 +21,26 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-support SIMCOM SIM7600E(AIS 4G Board)
+support esp32, esp8266
 
 Author:(POC Device Magellan team)
 Create Date: 25 April 2022.
-Modified: 22 may 2023.
+Modified: 22 dec 2025.
 */
 
-#include "MAGELLAN_SIM7600E_MQTT.h"
+/*
+ * This file includes code from TinyGSM
+ * Copyright (c) 2016-2024 Volodymyr Shymanskyy
+ * Licensed under LGPL-3.0-or-later
+ *
+ * Modifications:
+ *  - Adapted for AIS 4G Board
+ */
+
+#include "MAGELLAN_MQTT_TEMP.h"
+cb_on_disconnect func_on_disc;
+
 void adjust_BufferForMedia(size_t len_payload);
-void checkLimitationPayload(size_t len_payload, size_t limitation);
-unsigned long prev_millis_retrans = 0;
-unsigned long prev_millis_timeout = 0;
 struct JsonDocUtils
 {
   size_t used;
@@ -41,19 +49,30 @@ struct JsonDocUtils
 };
 JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs);
 
-MAGELLAN_MQTT_device_core *MAGELLAN_SIM7600E_MQTT::coreMQTT = NULL;
-Setting sim7600_setting;
+MAGELLAN_MQTT_device_core *MAGELLAN_MQTT_TEMP::coreMQTT = NULL;
+MagellanSetting setting;
 
-MAGELLAN_SIM7600E_MQTT::MAGELLAN_SIM7600E_MQTT()
+MAGELLAN_MQTT_TEMP::MAGELLAN_MQTT_TEMP(Client &_Client)
 {
-  this->coreMQTT = new MAGELLAN_MQTT_device_core();
+  coreMQTT = new MAGELLAN_MQTT_device_core(_Client);
 }
 
-MAGELLAN_SIM7600E_MQTT::MAGELLAN_SIM7600E_MQTT(Client &client)
+boolean MAGELLAN_MQTT_TEMP::isConnected()
 {
-  this->coreMQTT = new MAGELLAN_MQTT_device_core(client);
+  return coreMQTT->isConnected();
 }
-void MAGELLAN_SIM7600E_MQTT::begin(Setting _setting)
+
+void MAGELLAN_MQTT_TEMP::reconnect()
+{
+  coreMQTT->reconnect();
+}
+
+void MAGELLAN_MQTT_TEMP::disconnect()
+{
+  coreMQTT->disconnect();
+}
+
+void MAGELLAN_MQTT_TEMP::begin(MagellanSetting _setting)
 {
 #ifdef BYPASS_REQTOKEN
   if (_setting.ThingToken != "null" && _setting.ThingToken.length() > 25)
@@ -62,7 +81,8 @@ void MAGELLAN_SIM7600E_MQTT::begin(Setting _setting)
   }
   else
   {
-    Serial.println(F("# Invalid setting ThingToken -> Renew token"));
+    Serial.println(F("# Invalid setting ThingToken"));
+    Serial.println(F("# Define \"BYPASS_REQTOKEN\" but not setting ThingToken manual back into auto renew ThingToken mode"));
   }
 #endif
 
@@ -79,56 +99,37 @@ void MAGELLAN_SIM7600E_MQTT::begin(Setting _setting)
     attr.calculate_chunkSize = _setting.clientBufferSize / 2;
   }
 
-  size_t revertPartToBufferSize = attr.calculate_chunkSize * 2;
-  _setting.ThingIdentifier.trim();
-  _setting.ThingSecret.trim();
-  _setting.IMEI.trim();
-  // validate credential when user forget set ICCID and IMSI and useGSM getInfo from 4G board
-  if ((_setting.ThingIdentifier == "null" && _setting.ThingSecret == "null") && attr.clientNetInterface == useGSMClient)
-  {
-    Serial.println(F("# Not set credential information [ICCID, IMSI] in \"setting\""));
-    Serial.println(F("# Intiailizing information board"));
-    while (!GSM.begin())
-    {
-      Serial.println(F("GSM setup fail"));
-    }
-
-    _setting.ThingIdentifier = GSM.getICCID();
-    _setting.ThingSecret = GSM.getIMSI();
-    _setting.IMEI = GSM.getIMEI();
-    // Serial.println(GSM.getICCID());
-    // Serial.println(GSM.getIMSI());
-    // Serial.println(GSM.getIMEI());
-  }
+  size_t revertChunkToBufferSize = attr.calculate_chunkSize * 2;
+  // ThingIdentifier(ICCID) and ThingSecret(IMSI) .
   _setting.ThingIdentifier.trim();
   _setting.ThingSecret.trim();
   _setting.IMEI.trim();
 
-  // second validate after inital Info from 4G board or user set incorrect value
+  // second validate after get information
   if (coreMQTT->CheckString_isDigit(_setting.ThingIdentifier) && coreMQTT->CheckString_isDigit(_setting.ThingSecret))
   {
-    Serial.println(F("# ==========================="));
-    Serial.println("# ICCID: " + _setting.ThingIdentifier);
-    Serial.println("# IMSI : " + _setting.ThingSecret);
-    if (_setting.IMEI != "null")
-      Serial.println("# IMEI : " + _setting.IMEI);
-    Serial.println(F("# ==========================="));
-
+    Serial.print(F("ThingIdentifier: "));
+    Serial.println(_setting.ThingIdentifier);
+    Serial.print(F("ThingSecret: "));
+    Serial.println(_setting.ThingSecret);
+    Serial.print(F("IMEI: "));
+    Serial.println(_setting.IMEI);
     if (_setting.port > 0)
     {
-      beginCustom(_setting.ThingIdentifier, _setting.ThingSecret, _setting.IMEI, _setting.endpoint, _setting.port, revertPartToBufferSize, _setting.builtInSensor);
+
+      beginCustom(_setting.ThingIdentifier, _setting.ThingSecret, _setting.IMEI, _setting.endpoint, _setting.port, revertChunkToBufferSize);
     }
     else
     {
-      beginCustom(_setting.ThingIdentifier, _setting.ThingSecret, _setting.IMEI, _setting.endpoint, mgPort, revertPartToBufferSize, _setting.builtInSensor);
+      beginCustom(_setting.ThingIdentifier, _setting.ThingSecret, _setting.IMEI, _setting.endpoint, mgPort, revertChunkToBufferSize);
     }
-    setting = _setting; // 1.2.1
+    setting = _setting;
   }
   else
   {
-    Serial.println(F("# ICCID or IMSI invalid value please check again"));
-    Serial.println("# ThingIdentifier(ICCID)=> " + _setting.ThingIdentifier);
-    Serial.println("# ThingSecret(IMSI)=> " + _setting.ThingSecret);
+    Serial.println(F("# ThingIdentifier(ICCID) or ThingSecret(IMSI) invalid value please check again"));
+    Serial.println("# ThingIdentifier =>" + _setting.ThingIdentifier);
+    Serial.println("# ThingSecret =>" + _setting.ThingSecret);
     Serial.println(F("# ==========================="));
     Serial.println(F("# Restart board"));
     delay(5000);
@@ -136,192 +137,56 @@ void MAGELLAN_SIM7600E_MQTT::begin(Setting _setting)
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::begin(uint16_t bufferSize, boolean builtInSensor)
-{
-  if (bufferSize > _default_OverBufferSize)
-  {
-    Serial.print(F("# You have set a buffer size greater than 8192, adjusts to: "));
-    Serial.println(_default_OverBufferSize);
-    this->setMQTTBufferSize(_default_OverBufferSize);
-    attr.calculate_chunkSize = _default_OverBufferSize / 2;
-  }
-  else
-  {
-    this->setMQTTBufferSize(bufferSize);
-    attr.calculate_chunkSize = bufferSize / 2;
-  }
-  this->coreMQTT->begin(builtInSensor);
-  coreMQTT->activeOTA(attr.calculate_chunkSize, true);
-}
-
-void MAGELLAN_SIM7600E_MQTT::begin(String _thingIden, String _thingSencret, String _imei, uint16_t bufferSize, boolean builtinSensor)
+void MAGELLAN_MQTT_TEMP::beginCustom(String _thingIden, String _thingSecret, String _imei, String _host, int _port, uint16_t bufferSize)
 {
   _thingIden.trim();
-  _thingSencret.trim();
+  _thingSecret.trim();
+  String t_iden = _thingIden;
+  String t_sec = _thingSecret;
   _imei.trim();
-  this->coreMQTT->begin(_thingIden, _thingSencret, _imei, bufferSize, builtinSensor);
+
+  String genClientID = t_iden + "_" + String(random(1000, 9999));
+  this->coreMQTT->setAuthMagellan(t_iden, t_sec, _imei);
+  this->coreMQTT->beginCustom(genClientID, true, _host, _port, bufferSize);
   coreMQTT->activeOTA(attr.calculate_chunkSize, true);
 }
 
-void MAGELLAN_SIM7600E_MQTT::beginCustom(String _client_id, boolean builtinSensor, String _host, int _port, uint16_t bufferSize)
-{
-  this->coreMQTT->beginCustom(_client_id, builtinSensor, _host, _port, bufferSize);
-  coreMQTT->activeOTA(attr.calculate_chunkSize, true);
-}
-
-void MAGELLAN_SIM7600E_MQTT::beginCustom(String _thingIden, String _thingSencret, String _imei, String _host, int _port, uint16_t bufferSize, boolean builtinSensor)
-{
-  _thingIden.trim();
-  _thingSencret.trim();
-  _imei.trim();
-  String genClientID = _thingIden + "_" + String(random(1000, 9999));
-  this->coreMQTT->setAuthMagellan(_thingIden, _thingSencret, _imei);
-  this->coreMQTT->beginCustom(genClientID, builtinSensor, _host, _port, bufferSize);
-  coreMQTT->activeOTA(attr.calculate_chunkSize, true);
-}
-
-void MAGELLAN_SIM7600E_MQTT::loop()
+void MAGELLAN_MQTT_TEMP::loop()
 {
   this->coreMQTT->loop();
   if (attr.flagAutoOTA)
     this->coreMQTT->handleOTA(true);
+
+  if ((func_on_disc != NULL) && (!isConnected()))
+  {
+    func_on_disc();
+  }
 }
 
-void MAGELLAN_SIM7600E_MQTT::heartbeat(unsigned int second)
+void MAGELLAN_MQTT_TEMP::heartbeat(unsigned int second)
 {
   this->coreMQTT->heartbeat(second * 1000);
 }
 
-String MAGELLAN_SIM7600E_MQTT::deserializeControl(String payload)
+void MAGELLAN_MQTT_TEMP::heartbeat()
+{
+  this->coreMQTT->heartbeat();
+}
+
+String MAGELLAN_MQTT_TEMP::deserializeControl(String payload)
 {
   return this->coreMQTT->deserialControlJSON(payload);
 }
 
-void MAGELLAN_SIM7600E_MQTT::Centric::begin(uint16_t setBufferSize)
+bool MAGELLAN_MQTT_TEMP::Report::send(String payload)
 {
-  if (setBufferSize > _default_OverBufferSize)
-  {
-    Serial.print(F("# You have set a buffer size greater than 8192, adjusts to: "));
-    Serial.println(_default_OverBufferSize);
-    coreMQTT->setMQTTBufferSize(_default_OverBufferSize);
-    attr.calculate_chunkSize = _default_OverBufferSize / 2;
-  }
-  else
-  {
-    coreMQTT->setMQTTBufferSize(setBufferSize);
-    attr.calculate_chunkSize = setBufferSize / 2;
-  }
-  coreMQTT->beginCentric();
-  coreMQTT->activeOTA(attr.calculate_chunkSize, true);
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::isConnected()
-{
-  return this->coreMQTT->isConnected();
-}
-
-void MAGELLAN_SIM7600E_MQTT::Centric::begin(Setting _setting)
-{
-
-#ifdef BYPASS_REQTOKEN
-  if (_setting.ThingToken != "null" && _setting.ThingToken.length() > 25)
-  {
-    coreMQTT->setManualToken(_setting.ThingToken);
-  }
-  else
-  {
-    Serial.print(F("# Invalid setting ThingToken"));
-  }
-#endif
-
-  if (_setting.clientBufferSize > _default_OverBufferSize)
-  {
-    Serial.print(F("# You have set a buffer size greater than 8192, adjusts to: "));
-    Serial.println(_default_OverBufferSize);
-    coreMQTT->setMQTTBufferSize(_default_OverBufferSize);
-    attr.calculate_chunkSize = _default_OverBufferSize / 2;
-  }
-  else
-  {
-    coreMQTT->setMQTTBufferSize(_setting.clientBufferSize);
-    attr.calculate_chunkSize = _setting.clientBufferSize / 2;
-  }
-
-  size_t revertPartToBufferSize = attr.calculate_chunkSize * 2;
-  // validate credential when user forget set ICCID and IMSI and useGSM getInfo from 4G board
-  if ((_setting.ThingIdentifier == "null" && _setting.ThingSecret == "null") && attr.clientNetInterface == useGSMClient)
-  {
-    Serial.println(F("# Not set credential information [ICCID, IMSI]"));
-    Serial.println(F("# Intiailizing information board"));
-    while (!GSM.begin())
-    {
-      Serial.println(F("GSM setup fail"));
-    }
-    _setting.ThingIdentifier = GSM.getICCID();
-    _setting.ThingSecret = GSM.getIMSI();
-    _setting.IMEI = GSM.getIMEI();
-  }
-  _setting.ThingIdentifier.trim();
-  _setting.ThingSecret.trim();
-  _setting.IMEI.trim();
-
-  // second validate after inital Info from 4G board or user set incorrect value
-  if (coreMQTT->CheckString_isDigit(_setting.ThingIdentifier) && coreMQTT->CheckString_isDigit(_setting.ThingSecret))
-  {
-    coreMQTT->setAuthMagellan(_setting.ThingIdentifier, _setting.ThingSecret, _setting.IMEI);
-    Serial.println(F("# ==========================="));
-    Serial.println("# ICCID: " + _setting.ThingIdentifier);
-    Serial.println("# IMSI : " + _setting.ThingSecret);
-    if (_setting.IMEI != "null")
-      Serial.println("# IMEI : " + _setting.IMEI);
-    Serial.println(F("# ==========================="));
-    coreMQTT->beginCentric();
-    coreMQTT->activeOTA(attr.calculate_chunkSize, true);
-    setting = _setting; // 1.2.1
-  }
-  else
-  {
-    Serial.println(F("# ICCID or IMSI invalid value please check again"));
-    Serial.println("# ThingIdentifier(ICCID)=> " + _setting.ThingIdentifier);
-    Serial.println("# ThingSecret(IMSI)=> " + _setting.ThingSecret);
-    Serial.println(F("# ==========================="));
-    Serial.println(F("# Restart board"));
-    delay(5000);
-    ESP.restart();
-  }
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::Report::send(String payload)
-{
+  ResultReport result;
   int len = payload.length();
-  size_t cal_limit = 1500 - 66; // max(1500) - topic
-  checkLimitationPayload(len, cal_limit);
   adjust_BufferForMedia(len + 2000);
   return coreMQTT->report(payload);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Report::send(String key, String value)
-{
-  int len = value.length();
-  size_t cal_limit = 1500 - (79 + key.length()); // max(1500) - topic + key
-  checkLimitationPayload(len, cal_limit);
-  adjust_BufferForMedia(len + 2000);
-  return coreMQTT->report(key, value);
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::Report::send(int UnixtsTimstamp, String payload)
-{
-  int len = payload.length();
-  size_t cal_limit = 1500 - (76 + 10); // max(1500) - topic + len Unixtime
-  checkLimitationPayload(len, cal_limit);
-  adjust_BufferForMedia(len + 2000);
-  String u_timestamp = String(UnixtsTimstamp);
-  return coreMQTT->reportTimestamp(u_timestamp, payload);
-}
-
-// ver.1.1.2
-
-boolean MAGELLAN_SIM7600E_MQTT::Report::send(String payload, int msgId) // 1.1.2
+bool MAGELLAN_MQTT_TEMP::Report::send(String payload, int msgId) // 1.1.0
 {
   ResultReport result;
   int len = payload.length();
@@ -330,7 +195,14 @@ boolean MAGELLAN_SIM7600E_MQTT::Report::send(String payload, int msgId) // 1.1.2
   return result.statusReport;
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Report::send(String key, String value, int msgId) // 1.1.2
+bool MAGELLAN_MQTT_TEMP::Report::send(String key, String value)
+{
+  int len = value.length();
+  adjust_BufferForMedia(len + 2000);
+  return coreMQTT->report(key, value);
+}
+
+bool MAGELLAN_MQTT_TEMP::Report::send(String key, String value, int msgId) // 1.1.0
 {
   ResultReport result;
   int len = value.length();
@@ -339,7 +211,21 @@ boolean MAGELLAN_SIM7600E_MQTT::Report::send(String key, String value, int msgId
   return result.statusReport;
 }
 
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::send(String payload, RetransmitSetting &retrans)
+bool MAGELLAN_MQTT_TEMP::Report::send(int UnixtsTimstamp, String payload)
+{
+  int len = payload.length();
+  adjust_BufferForMedia(len + 2000);
+  String u_timestamp = String(UnixtsTimstamp);
+  return coreMQTT->reportTimestamp(u_timestamp, payload);
+}
+
+// ver.1.1.0
+int MAGELLAN_MQTT_TEMP::Report::generateMsgId()
+{
+  return (int)random(9999, 9999999);
+}
+
+ResultReport MAGELLAN_MQTT_TEMP::Report::send(String payload, RetransmitSetting &retrans)
 {
   ResultReport result;
   if (retrans.enabled)
@@ -365,7 +251,7 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::send(String payload, RetransmitSett
     else
     {
       retrans.msgId = this->generateMsgId();
-      result.statusReport = this->send(payload);
+      result.statusReport = this->send(payload, retrans.msgId);
       result.msgId = retrans.msgId;
     }
     return result;
@@ -373,7 +259,7 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::send(String payload, RetransmitSett
   return result;
 }
 
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::send(String reportKey, String reportValue, RetransmitSetting &retrans)
+ResultReport MAGELLAN_MQTT_TEMP::Report::send(String reportKey, String reportValue, RetransmitSetting &retrans)
 {
   ResultReport result;
   if (retrans.enabled)
@@ -409,18 +295,12 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::send(String reportKey, String repor
   return result;
 }
 
-int MAGELLAN_SIM7600E_MQTT::Report::generateMsgId()
-{
-  return (int)random(9999, 9999999);
-}
-
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendWithMsgId(String payload, int msgId)
+// ver.1.1.0 private
+ResultReport MAGELLAN_MQTT_TEMP::Report::sendWithMsgId(String payload, int msgId)
 {
   int len = payload.length();
   String _topic = "api/v2/thing/" + attr.ext_Token + "/report/persist/?id=" + String(msgId);
   ResultReport internalResult;
-  size_t cal_limit = 1500 - _topic.length(); // max(1500) - topic
-  checkLimitationPayload(len, cal_limit);
   adjust_BufferForMedia(len + 2000);
   bool result = attr.mqtt_client->publish(_topic.c_str(), payload.c_str());
   internalResult.statusReport = result;
@@ -431,14 +311,13 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendWithMsgId(String payload, int m
   Serial.println("# [Sensors]: " + payload);
   return internalResult;
 }
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendWithMsgId(String reportKey, String reportValue, int msgId)
+
+ResultReport MAGELLAN_MQTT_TEMP::Report::sendWithMsgId(String reportKey, String reportValue, int msgId)
 {
   int len = reportValue.length();
 
   String _topic = "api/v2/thing/" + attr.ext_Token + "/report/persist/pta/?sensor=" + reportKey + "&id=" + String(msgId);
   ResultReport internalResult;
-  size_t cal_limit = 1500 - (_topic.length()); // max(1500) - topic
-  checkLimitationPayload(len, cal_limit);
   adjust_BufferForMedia(len + 2000);
   bool result = attr.mqtt_client->publish(_topic.c_str(), reportValue.c_str());
   internalResult.statusReport = result;
@@ -446,37 +325,39 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendWithMsgId(String reportKey, Str
   String _debug = (result == true) ? "Success" : "Failure";
   Serial.println(F("-------------------------------"));
   Serial.println("# Report Plaintext with MsgId: " + String(msgId) + " is " + _debug);
-  Serial.println("# [Report value]: " + reportValue);
+  Serial.println("# [Sensors]: " + reportValue);
   return internalResult;
 }
 
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendWithMsgId(String payload)
+ResultReport MAGELLAN_MQTT_TEMP::Report::sendWithMsgId(String payload)
 {
   int randomID = generateMsgId();
   return this->sendWithMsgId(payload, randomID);
 }
 
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendWithMsgId(String reportKey, String reportValue)
+ResultReport MAGELLAN_MQTT_TEMP::Report::sendWithMsgId(String reportKey, String reportValue)
 {
-  int randomID = generateMsgId();
+  int randomID = this->generateMsgId();
   return this->sendWithMsgId(reportKey, reportValue, randomID);
 }
 
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String payload, RetransmitSetting retrans)
+unsigned long _prev_millis_retrans = 0;
+unsigned long _prev_millis_timeout = 0;
+
+ResultReport MAGELLAN_MQTT_TEMP::Report::sendRetransmit(String payload, RetransmitSetting retrans)
 {
   attr.reqRetransmit = true;
   ResultReport result;
   int countRetransmit = 0;
   attr.matchMsgId_send = retrans.msgId;
   int Timeout = ((retrans.repeat * retrans.duration) + 2) * 1000;
-  prev_millis_timeout = millis();
+  _prev_millis_timeout = millis();
   while (true)
   {
     coreMQTT->loop();
     coreMQTT->registerList(duplicate_subs_list);
-    if (millis() - prev_millis_retrans > (retrans.duration * 1000) && countRetransmit < (retrans.repeat + 1))
+    if (millis() - _prev_millis_retrans > (retrans.duration * 1000) && countRetransmit < (retrans.repeat + 1))
     {
-      result = this->sendWithMsgId(payload, retrans.msgId);
       if (countRetransmit > 0)
       {
         Serial.print(F("\n#Retransmit count: "));
@@ -484,42 +365,54 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String payload, Retr
         Serial.print(F(" on MsgId: "));
         Serial.println(retrans.msgId);
       }
+      result = this->sendWithMsgId(payload, retrans.msgId);
       countRetransmit++;
       if (countRetransmit > retrans.repeat)
       {
         Serial.print(F("\n# Report retransmit fail timeout on MsgId: "));
         Serial.println(attr.matchMsgId_send);
+
         attr.reqRetransmit = false;
         break;
       }
-      prev_millis_retrans = millis();
+      _prev_millis_retrans = millis();
     }
     if (attr.isMatchMsgId)
     {
       Serial.print(F("# Finished report transmission MsgId: "));
       Serial.println(attr.matchMsgId_send);
+      // Serial.println(countRetransmit);
       result.msgId = attr.matchMsgId_send; // assign msgId
       result.statusReport = true;
 
-      attr.reqRetransmit = false;
       attr.isMatchMsgId = false;
       attr.matchMsgId_cb = -1;
       attr.matchMsgId_send = -1;
+      attr.reqRetransmit = false;
       break;
     }
     if (!coreMQTT->isConnected())
     {
-      Serial.print(F("\n# Report retransmit fail connection lost on MsgId: "));
-      Serial.println(attr.matchMsgId_send);
-      break;
+      if (func_on_disc != NULL)
+      {
+        Serial.println(F("# connection lost from server"));
+        Serial.println(F("# Report retransmit trigger event on disconnect"));
+        func_on_disc();
+      }
+      else
+      {
+        Serial.print(F("\n# Report retransmit fail connection lost on MsgId: "));
+        Serial.println(attr.matchMsgId_send);
+        break;
+      }
     }
-    if (millis() - prev_millis_timeout > Timeout)
+    if (millis() - _prev_millis_timeout > Timeout)
     {
-      prev_millis_timeout = millis();
-      Serial.print(F("\n# Triger timeout from send retransmit"));
       result.msgId = attr.matchMsgId_send; // assign msgId
       result.statusReport = false;
       attr.reqRetransmit = false;
+      _prev_millis_timeout = millis();
+      Serial.print(F("\n# Triger timeout from send retransmit"));
       break;
     }
     if (attr.inProcessOTA && attr.reqRetransmit)
@@ -534,28 +427,31 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String payload, Retr
   return result;
 }
 
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String reportKey, String reportValue, RetransmitSetting retrans)
+ResultReport MAGELLAN_MQTT_TEMP::Report::sendRetransmit(String reportKey, String reportValue, RetransmitSetting retrans)
 {
   attr.reqRetransmit = true;
   ResultReport result;
   int countRetransmit = 0;
   attr.matchMsgId_send = retrans.msgId;
   int Timeout = ((retrans.repeat * retrans.duration) + 2) * 1000;
-  prev_millis_timeout = millis();
+  _prev_millis_timeout = millis();
   while (true)
   {
     coreMQTT->loop();
     coreMQTT->registerList(duplicate_subs_list);
-    if (millis() - prev_millis_retrans > (retrans.duration * 1000) && countRetransmit < (retrans.repeat + 1))
+    if (millis() - _prev_millis_retrans > (retrans.duration * 1000) && countRetransmit < (retrans.repeat + 1))
     {
       result = this->sendWithMsgId(reportKey, reportValue, retrans.msgId);
       if (countRetransmit > 0)
       {
-        Serial.print(F("\n#Retransmit count: "));
+        Serial.print(F("\n# Retransmit count: "));
         Serial.print(countRetransmit);
         Serial.print(F(" on MsgId: "));
         Serial.println(retrans.msgId);
       }
+
+      // result.msgId = retrans.msgId;
+
       countRetransmit++;
       if (countRetransmit > retrans.repeat)
       {
@@ -564,7 +460,7 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String reportKey, St
         attr.reqRetransmit = false;
         break;
       }
-      prev_millis_retrans = millis();
+      _prev_millis_retrans = millis();
     }
     if (attr.isMatchMsgId)
     {
@@ -581,13 +477,22 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String reportKey, St
     }
     if (!coreMQTT->isConnected())
     {
-      Serial.print(F("\n# Report retransmit fail connection lost on MsgId: "));
-      Serial.println(attr.matchMsgId_send);
-      break;
+      if (func_on_disc != NULL)
+      {
+        Serial.println(F("# connection lost from server"));
+        Serial.println(F("# Report retransmit trigger event on disconnect"));
+        func_on_disc();
+      }
+      else
+      {
+        Serial.print(F("\n# Report retransmit fail connection lost on MsgId: "));
+        Serial.println(attr.matchMsgId_send);
+        break;
+      }
     }
-    if (millis() - prev_millis_timeout > Timeout)
+    if (millis() - _prev_millis_timeout > Timeout)
     {
-      prev_millis_timeout = millis();
+      _prev_millis_timeout = millis();
       Serial.print(F("\n# Triger timeout from send retransmit"));
       result.msgId = attr.matchMsgId_send; // assign msgId
       result.statusReport = false;
@@ -606,7 +511,7 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String reportKey, St
   return result;
 }
 
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String payload)
+ResultReport MAGELLAN_MQTT_TEMP::Report::sendRetransmit(String payload)
 {
   int randomID = this->generateMsgId();
   RetransmitSetting retrans;
@@ -615,7 +520,7 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String payload)
   return result;
 }
 
-ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String reportKey, String reportValue)
+ResultReport MAGELLAN_MQTT_TEMP::Report::sendRetransmit(String reportKey, String reportValue)
 {
   int randomID = this->generateMsgId();
   RetransmitSetting retrans;
@@ -624,288 +529,151 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Report::sendRetransmit(String reportKey, St
   return result;
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::matchingMsgId(int sendingMsgId, int incomingMsgId)
-{
-  if (sendingMsgId == incomingMsgId)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
+/// @details v1.1.0
 
-/// @details v1.1.2
-
-float MAGELLAN_SIM7600E_MQTT::BuiltinSensor::readTemperature()
-{
-  return mySensor.readTemperature();
-}
-
-float MAGELLAN_SIM7600E_MQTT::BuiltinSensor::readHumidity()
-{
-  return mySensor.readHumidity();
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::GPSmodule::available()
-{
-  return mySensor.GPSavailable();
-}
-
-float MAGELLAN_SIM7600E_MQTT::GPSmodule::readLatitude()
-{
-  return mySensor.readLatitude();
-}
-
-float MAGELLAN_SIM7600E_MQTT::GPSmodule::readLongitude()
-{
-  return mySensor.readLongitude();
-}
-
-float MAGELLAN_SIM7600E_MQTT::GPSmodule::readAltitude()
-{
-  return mySensor.readAltitude();
-}
-
-float MAGELLAN_SIM7600E_MQTT::GPSmodule::readSpeed()
-{
-  return mySensor.readSpeed();
-}
-
-float MAGELLAN_SIM7600E_MQTT::GPSmodule::readCourse()
-{
-  return mySensor.readCourse();
-}
-
-String MAGELLAN_SIM7600E_MQTT::GPSmodule::readLocation()
-{
-  return mySensor.readLocation();
-}
-
-void MAGELLAN_SIM7600E_MQTT::GPSmodule::setLocalTimeZone(int timeZone)
-{
-  mySensor.setLocalTimeZone(timeZone);
-}
-
-int MAGELLAN_SIM7600E_MQTT::GPSmodule::getDay()
-{
-  return mySensor.getDay();
-}
-
-String MAGELLAN_SIM7600E_MQTT::GPSmodule::getDayToString()
-{
-  return mySensor.getDayToString();
-}
-
-int MAGELLAN_SIM7600E_MQTT::GPSmodule::getMonth()
-{
-  return mySensor.getMonth();
-}
-
-String MAGELLAN_SIM7600E_MQTT::GPSmodule::getMonthToString()
-{
-  return mySensor.getMonthToString();
-}
-
-int MAGELLAN_SIM7600E_MQTT::GPSmodule::getYear()
-{
-  return mySensor.getYear();
-}
-
-String MAGELLAN_SIM7600E_MQTT::GPSmodule::getYearToString()
-{
-  return mySensor.getYearToString();
-}
-
-int MAGELLAN_SIM7600E_MQTT::GPSmodule::getHour()
-{
-  return mySensor.getHour();
-}
-
-String MAGELLAN_SIM7600E_MQTT::GPSmodule::getHourToString()
-{
-  return mySensor.getHourToString();
-}
-
-int MAGELLAN_SIM7600E_MQTT::GPSmodule::getMinute()
-{
-  return mySensor.getMinute();
-}
-
-String MAGELLAN_SIM7600E_MQTT::GPSmodule::getMinuteToString()
-{
-  return mySensor.getMinuteToString();
-}
-
-int MAGELLAN_SIM7600E_MQTT::GPSmodule::getSecond()
-{
-  return mySensor.getSecond();
-}
-
-String MAGELLAN_SIM7600E_MQTT::GPSmodule::getSecondToString()
-{
-  return mySensor.getSecondToString();
-}
-
-String MAGELLAN_SIM7600E_MQTT::GPSmodule::getDateTimeString()
-{
-  return mySensor.getDateTimeString();
-}
-
-String MAGELLAN_SIM7600E_MQTT::GPSmodule::getUniversalTime()
-{
-  return mySensor.getUniversalTime();
-}
-
-unsigned long MAGELLAN_SIM7600E_MQTT::GPSmodule::getUnixTime()
-{
-  return mySensor.getUnixTime();
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::Subscribe::Report::response(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Subscribe::Report::response(unsigned int format)
 {
   return coreMQTT->registerResponseReport(format);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Subscribe::ReportWithTimestamp::response()
+boolean MAGELLAN_MQTT_TEMP::Subscribe::ReportWithTimestamp::response()
 {
   return coreMQTT->registerResponseReportTimestamp();
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Subscribe::Heartbeat::response(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Subscribe::Heartbeat::response(unsigned int format)
 {
   return coreMQTT->registerResponseHeartbeat(format);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Subscribe::control(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Subscribe::control(unsigned int format)
 {
   return coreMQTT->registerControl(format);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Subscribe::control(String controlKey)
+boolean MAGELLAN_MQTT_TEMP::Subscribe::control(String controlKey)
 {
   return coreMQTT->registerControl(controlKey);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Subscribe::serverConfig(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Subscribe::serverConfig(unsigned int format)
 {
   return coreMQTT->registerConfig(format);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Subscribe::serverConfig(String controlKey)
+boolean MAGELLAN_MQTT_TEMP::Subscribe::serverConfig(String controlKey)
 {
   return coreMQTT->registerConfig(controlKey);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Subscribe::getServerTime(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Subscribe::getServerTime(unsigned int format)
 {
   return coreMQTT->registerTimestamp(format);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-boolean MAGELLAN_SIM7600E_MQTT::Unsubscribe::Report::response(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Unsubscribe::Report::response(unsigned int format)
 {
   return coreMQTT->unregisterResponseReport(format);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Unsubscribe::ReportWithTimestamp::response()
+boolean MAGELLAN_MQTT_TEMP::Unsubscribe::ReportWithTimestamp::response()
 {
   return coreMQTT->unregisterResponseReportTimestamp();
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Unsubscribe::Heartbeat::response(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Unsubscribe::Heartbeat::response(unsigned int format)
 {
   return coreMQTT->unregisterResponseHeartbeat(format);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Unsubscribe::control(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Unsubscribe::control(unsigned int format)
 {
   return coreMQTT->unregisterControl(format);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Unsubscribe::control(String controlKey)
+boolean MAGELLAN_MQTT_TEMP::Unsubscribe::control(String controlKey)
 {
   return coreMQTT->unregisterControl(controlKey);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Unsubscribe::serverConfig(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Unsubscribe::serverConfig(unsigned int format)
 {
   return coreMQTT->unregisterConfig(format);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Unsubscribe::serverConfig(String controlKey)
+boolean MAGELLAN_MQTT_TEMP::Unsubscribe::serverConfig(String controlKey)
 {
   return coreMQTT->unregisterConfig(controlKey);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Unsubscribe::getServerTime(unsigned int format)
+boolean MAGELLAN_MQTT_TEMP::Unsubscribe::getServerTime(unsigned int format)
 {
   return coreMQTT->unregisterTimestamp(format);
 }
 ////////////////////////////////////////////////////////////////////////////////
 
-void MAGELLAN_SIM7600E_MQTT::Information::getBoardInfo()
-{
-  coreMQTT->getBoardInfo();
-}
-
-String MAGELLAN_SIM7600E_MQTT::Information::getHostName()
+String MAGELLAN_MQTT_TEMP::Information::getHostName()
 {
   return coreMQTT->getHostName();
 }
 
-String MAGELLAN_SIM7600E_MQTT::Information::getThingToken()
+String MAGELLAN_MQTT_TEMP::Information::getThingToken()
 {
   return coreMQTT->readToken();
 }
 
-String MAGELLAN_SIM7600E_MQTT::Information::getICCID()
+void MAGELLAN_MQTT_TEMP::Information::getBoardInfo()
 {
-  return coreMQTT->getICCID();
+  Serial.println(F("#====== Board information ========="));
+  Serial.println("ThingIdentifier: " + String(setting.ThingIdentifier));
+  Serial.println("ThingSecret: " + String(setting.ThingSecret));
+  if (setting.IMEI != "null" && setting.IMEI.length() > 8)
+    Serial.println("IMEI: " + String(setting.IMEI));
+  Serial.println(F("#================================="));
 }
 
-String MAGELLAN_SIM7600E_MQTT::Information::getIMSI()
+String MAGELLAN_MQTT_TEMP::Information::getThingIdentifier()
 {
-  return coreMQTT->getIMEI();
+  return setting.ThingIdentifier;
 }
 
-String MAGELLAN_SIM7600E_MQTT::Information::getIMEI()
+String MAGELLAN_MQTT_TEMP::Information::getThingSecret()
 {
-  return coreMQTT->getIMEI();
+  return setting.ThingSecret;
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Control::ACK(String controlKey, String controlValue)
+boolean MAGELLAN_MQTT_TEMP::Control::ACK(String controlKey, String controlValue)
 {
   return coreMQTT->ACKControl(controlKey, controlValue);
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Control::ACK(String payload)
+boolean MAGELLAN_MQTT_TEMP::Control::ACK(String payload)
 {
   return coreMQTT->ACKControl(payload);
 }
 
-void MAGELLAN_SIM7600E_MQTT::Control::request()
+void MAGELLAN_MQTT_TEMP::Control::request()
 {
   coreMQTT->reqControlJSON();
 }
 
-void MAGELLAN_SIM7600E_MQTT::Control::request(String controlKey)
+void MAGELLAN_MQTT_TEMP::Control::request(String controlKey)
 {
   coreMQTT->reqControl(controlKey);
 }
 
-void MAGELLAN_SIM7600E_MQTT::ServerConfig::request()
+void MAGELLAN_MQTT_TEMP::ServerConfig::request()
 {
   coreMQTT->reqConfigJSON();
 }
 
-void MAGELLAN_SIM7600E_MQTT::ServerConfig::request(String serverConfigKey)
+void MAGELLAN_MQTT_TEMP::ServerConfig::request(String serverConfigKey)
 {
   coreMQTT->reqConfig(serverConfigKey);
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, String sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::add(String sensorKey, String sensorValue)
 {
   JsonDocUtils validateJSON_doc = readSafetyCapacity_Json_doc(*attr.docSensor);
   if (sensorValue == "null")
@@ -938,7 +706,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, String sensorValue)
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, const char *sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::add(String sensorKey, const char *sensorValue)
 {
   JsonDocUtils validateJSON_doc = readSafetyCapacity_Json_doc(*attr.docSensor);
   if (sensorValue == "null")
@@ -972,7 +740,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, const char *sensorVal
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, int sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::add(String sensorKey, int sensorValue)
 {
   JsonDocUtils validateJSON_doc = readSafetyCapacity_Json_doc(*attr.docSensor);
   if (validateJSON_doc.used > validateJSON_doc.safety_size * 0.8f)
@@ -990,7 +758,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, int sensorValue)
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, float sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::add(String sensorKey, float sensorValue)
 {
   JsonDocUtils validateJSON_doc = readSafetyCapacity_Json_doc(*attr.docSensor);
   if (validateJSON_doc.used > validateJSON_doc.safety_size * 0.8f)
@@ -1008,7 +776,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, float sensorValue)
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, boolean sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::add(String sensorKey, boolean sensorValue)
 {
   JsonDocUtils validateJSON_doc = readSafetyCapacity_Json_doc(*attr.docSensor);
   if (validateJSON_doc.used > validateJSON_doc.safety_size * 0.8f)
@@ -1026,29 +794,28 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::add(String sensorKey, boolean sensorValue)
   }
 }
 
-String MAGELLAN_SIM7600E_MQTT::Sensor::toJSONString()
+String MAGELLAN_MQTT_TEMP::Sensor::toJSONString()
 {
   return coreMQTT->buildSensorJSON(*attr.docSensor);
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::report()
+void MAGELLAN_MQTT_TEMP::Sensor::report()
 {
   String bufferPlayload = coreMQTT->buildSensorJSON(*attr.docSensor);
   int len = bufferPlayload.length();
+
   if (bufferPlayload.indexOf("null") == -1)
   {
     if (bufferPlayload.indexOf("null") == -1 && len < attr.max_payload_report)
     {
       adjust_BufferForMedia(len);
-      size_t cal_limit = 1500 - 66; // max(1500) - topic
-      checkLimitationPayload(len, cal_limit);
       coreMQTT->report(bufferPlayload);
       coreMQTT->clearSensorBuffer(*attr.docSensor);
     }
     else if (bufferPlayload.indexOf("null") == -1 && len > attr.max_payload_report)
     {
-      Serial.println("# [ERORR] payload length : " + String(len));
-      Serial.println("# [ERORR] Sensor.report() Failed payload is geather than: " + String(attr.max_payload_report));
+      Serial.println("# [ERROR] Current payload length : " + String(len));
+      Serial.println("# [ERROR] Sensor.report() Failed payload is geather than: " + String(attr.max_payload_report));
       coreMQTT->clearSensorBuffer(*attr.docSensor);
       return;
     }
@@ -1059,8 +826,92 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::report()
   }
 }
 
-// ver 1.1.2
-ResultReport MAGELLAN_SIM7600E_MQTT::Sensor::report(RetransmitSetting &retrans)
+ResultReport MAGELLAN_MQTT_TEMP::Sensor::sendRetransmit(String payload, RetransmitSetting retrans)
+{
+  attr.reqRetransmit = true;
+  ResultReport result;
+  Report report;
+  int countRetransmit = 0;
+  attr.matchMsgId_send = retrans.msgId;
+  int Timeout = ((retrans.repeat * retrans.duration) + 2) * 1000;
+  _prev_millis_timeout = millis();
+  while (true)
+  {
+    coreMQTT->loop();
+    coreMQTT->registerList(duplicate_subs_list);
+    if (millis() - _prev_millis_retrans > (retrans.duration * 1000) && countRetransmit < (retrans.repeat + 1))
+    {
+      if (countRetransmit > 0)
+      {
+        Serial.print(F("\n#Retransmit count: "));
+        Serial.print(countRetransmit);
+        Serial.print(F(" on MsgId: "));
+        Serial.println(retrans.msgId);
+      }
+      result.statusReport = report.send(payload, retrans.msgId);
+      result.msgId = retrans.msgId;
+      countRetransmit++;
+      if (countRetransmit > retrans.repeat)
+      {
+        Serial.print(F("\n# Report retransmit fail timeout on MsgId: "));
+        Serial.println(attr.matchMsgId_send);
+
+        attr.reqRetransmit = false;
+        break;
+      }
+      _prev_millis_retrans = millis();
+    }
+    if (attr.isMatchMsgId)
+    {
+      Serial.print(F("# Finished report transmission MsgId: "));
+      Serial.println(attr.matchMsgId_send);
+      // Serial.println(countRetransmit);
+      result.msgId = attr.matchMsgId_send; // assign msgId
+      result.statusReport = true;
+
+      attr.isMatchMsgId = false;
+      attr.matchMsgId_cb = -1;
+      attr.matchMsgId_send = -1;
+      attr.reqRetransmit = false;
+      break;
+    }
+    if (!coreMQTT->isConnected())
+    {
+      if (func_on_disc != NULL)
+      {
+        Serial.println(F("# connection lost from server"));
+        Serial.println(F("# Report retransmit trigger event on disconnect"));
+        func_on_disc();
+      }
+      else
+      {
+        Serial.print(F("\n# Report retransmit fail connection lost on MsgId: "));
+        Serial.println(attr.matchMsgId_send);
+        break;
+      }
+    }
+    if (millis() - _prev_millis_timeout > Timeout)
+    {
+      result.msgId = attr.matchMsgId_send; // assign msgId
+      result.statusReport = false;
+      attr.reqRetransmit = false;
+      _prev_millis_timeout = millis();
+      Serial.print(F("\n# Triger timeout from send retransmit"));
+      break;
+    }
+    if (attr.inProcessOTA && attr.reqRetransmit)
+    {
+      Serial.print(F("\n# In procress OTA cancel report with report retransmit"));
+      result.msgId = attr.matchMsgId_send; // assign msgId
+      result.statusReport = false;
+      attr.reqRetransmit = false;
+      break;
+    }
+  }
+  return result;
+}
+
+ResultReport MAGELLAN_MQTT_TEMP::Sensor::report(RetransmitSetting &retrans)
 {
   String bufferPlayload = coreMQTT->buildSensorJSON(*attr.docSensor);
   int len = bufferPlayload.length();
@@ -1075,7 +926,7 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Sensor::report(RetransmitSetting &retrans)
         if (bufferPlayload.indexOf("null") == -1 && len < attr.max_payload_report)
         {
           adjust_BufferForMedia(len);
-          result = report.send(bufferPlayload, retrans);
+          result = sendRetransmit(bufferPlayload, retrans);
           coreMQTT->clearSensorBuffer(*attr.docSensor);
         }
         else if (bufferPlayload.indexOf("null") == -1 && len > attr.max_payload_report)
@@ -1095,7 +946,7 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Sensor::report(RetransmitSetting &retrans)
     else
     {
       retrans.msgId = report.generateMsgId();
-      result = this->sendRetransmit(bufferPlayload, retrans);
+      result = sendRetransmit(bufferPlayload, retrans);
       coreMQTT->clearSensorBuffer(*attr.docSensor);
     }
     return result;
@@ -1120,85 +971,7 @@ ResultReport MAGELLAN_SIM7600E_MQTT::Sensor::report(RetransmitSetting &retrans)
   return result;
 }
 
-ResultReport MAGELLAN_SIM7600E_MQTT::Sensor::sendRetransmit(String payload, RetransmitSetting retrans)
-{
-  attr.reqRetransmit = true;
-  ResultReport result;
-  Report report;
-  int countRetransmit = 0;
-  attr.matchMsgId_send = retrans.msgId;
-  int Timeout = ((retrans.repeat * retrans.duration) + 2) * 1000;
-  prev_millis_timeout = millis();
-  while (true)
-  {
-    coreMQTT->loop();
-    coreMQTT->registerList(duplicate_subs_list);
-    if (millis() - prev_millis_retrans > (retrans.duration * 1000) && countRetransmit < (retrans.repeat + 1))
-    {
-      if (countRetransmit > 0)
-      {
-        Serial.print(F("\n#Retransmit count: "));
-        Serial.print(countRetransmit);
-        Serial.print(F(" on MsgId: "));
-        Serial.println(retrans.msgId);
-      }
-      result.statusReport = report.send(payload, retrans.msgId);
-      result.msgId = retrans.msgId;
-      countRetransmit++;
-      if (countRetransmit > retrans.repeat)
-      {
-        Serial.print(F("\n# Report retransmit fail timeout on MsgId: "));
-        Serial.println(attr.matchMsgId_send);
-
-        attr.reqRetransmit = false;
-        break;
-      }
-      prev_millis_retrans = millis();
-    }
-    if (attr.isMatchMsgId)
-    {
-      Serial.print(F("# Finished report transmission MsgId: "));
-      Serial.println(attr.matchMsgId_send);
-      // Serial.println(countRetransmit);
-      result.msgId = attr.matchMsgId_send; // assign msgId
-      result.statusReport = true;
-
-      attr.isMatchMsgId = false;
-      attr.matchMsgId_cb = -1;
-      attr.matchMsgId_send = -1;
-      attr.reqRetransmit = false;
-      break;
-    }
-    // if (!coreMQTT->isConnected())
-    // {
-    //     Serial.print(F("\n# Report retransmit fail connection lost on MsgId: "));
-    //     Serial.println(attr.matchMsgId_send);
-    //     break;
-    // }
-    if (millis() - prev_millis_timeout > Timeout)
-    {
-      result.msgId = attr.matchMsgId_send; // assign msgId
-      result.statusReport = false;
-      attr.reqRetransmit = false;
-      prev_millis_timeout = millis();
-      Serial.print(F("\n# Triger timeout from send retransmit"));
-      break;
-    }
-    if (attr.inProcessOTA && attr.reqRetransmit)
-    {
-      Serial.print(F("\n# In procress OTA cancel report with report retransmit"));
-      result.msgId = attr.matchMsgId_send; // assign msgId
-      result.statusReport = false;
-      attr.reqRetransmit = false;
-      break;
-    }
-  }
-  return result;
-}
-
-// ver 1.1.2
-
-void MAGELLAN_SIM7600E_MQTT::Sensor::remove(String sensorKey)
+void MAGELLAN_MQTT_TEMP::Sensor::remove(String sensorKey)
 {
   if (findKey(sensorKey))
   {
@@ -1210,12 +983,12 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::remove(String sensorKey)
   }
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::Sensor::findKey(String sensorKey)
+boolean MAGELLAN_MQTT_TEMP::Sensor::findKey(String sensorKey)
 {
   return coreMQTT->findKey(sensorKey, *attr.docSensor);
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, String sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::update(String sensorKey, String sensorValue)
 {
 
   if (findKey(sensorKey))
@@ -1253,7 +1026,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, String sensorValue
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, const char *sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::update(String sensorKey, const char *sensorValue)
 {
   if (findKey(sensorKey))
   {
@@ -1290,7 +1063,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, const char *sensor
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, int sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::update(String sensorKey, int sensorValue)
 {
   if (findKey(sensorKey))
   {
@@ -1317,7 +1090,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, int sensorValue)
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, float sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::update(String sensorKey, float sensorValue)
 {
   if (findKey(sensorKey))
   {
@@ -1344,7 +1117,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, float sensorValue)
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, boolean sensorValue)
+void MAGELLAN_MQTT_TEMP::Sensor::update(String sensorKey, boolean sensorValue)
 {
   if (findKey(sensorKey))
   {
@@ -1371,7 +1144,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::update(String sensorKey, boolean sensorValu
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::Location::add(String LocationKey, double latitude, double longtitude)
+void MAGELLAN_MQTT_TEMP::Sensor::Location::add(String LocationKey, double latitude, double longtitude)
 {
   char b_lat[25];
   char b_lng[25];
@@ -1381,7 +1154,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::Location::add(String LocationKey, double la
   coreMQTT->addSensor(LocationKey, location, *attr.docSensor);
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::Location::add(String LocationKey, String latitude, String longtitude)
+void MAGELLAN_MQTT_TEMP::Sensor::Location::add(String LocationKey, String latitude, String longtitude)
 {
   if ((coreMQTT->CheckString_isDouble(latitude)) && (coreMQTT->CheckString_isDouble(longtitude)))
   {
@@ -1394,7 +1167,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::Location::add(String LocationKey, String la
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::Location::update(String LocationKey, double latitude, double longtitude)
+void MAGELLAN_MQTT_TEMP::Sensor::Location::update(String LocationKey, double latitude, double longtitude)
 {
   if (coreMQTT->findKey(LocationKey, *attr.docSensor))
   {
@@ -1412,7 +1185,7 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::Location::update(String LocationKey, double
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::Location::update(String LocationKey, String latitude, String longtitude)
+void MAGELLAN_MQTT_TEMP::Sensor::Location::update(String LocationKey, String latitude, String longtitude)
 {
   if ((coreMQTT->CheckString_isDouble(latitude)) && (coreMQTT->CheckString_isDouble(longtitude)))
   {
@@ -1433,23 +1206,23 @@ void MAGELLAN_SIM7600E_MQTT::Sensor::Location::update(String LocationKey, String
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::clear()
+void MAGELLAN_MQTT_TEMP::Sensor::clear()
 {
   coreMQTT->clearSensorBuffer(*attr.docSensor);
 }
 
-void MAGELLAN_SIM7600E_MQTT::Sensor::setJSONBufferSize(size_t JsonBuffersize)
+void MAGELLAN_MQTT_TEMP::Sensor::setJSONBufferSize(size_t JsonBuffersize)
 {
   Serial.print("# Set JSON buffer size: " + String(JsonBuffersize));
   coreMQTT->adjustBufferSensor(JsonBuffersize);
   Serial.println(" Status: " + String((readJSONBufferSize() == (int)JsonBuffersize) ? "Success" : "Fail"));
 }
-int MAGELLAN_SIM7600E_MQTT::Sensor::readJSONBufferSize()
+int MAGELLAN_MQTT_TEMP::Sensor::readJSONBufferSize()
 {
   return coreMQTT->readBufferSensor(*attr.docSensor);
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::add(String clientConfigKey, String clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::add(String clientConfigKey, String clientConfigValue)
 {
   if (clientConfigValue == "null")
   {
@@ -1461,7 +1234,7 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::add(String clientConfigKey, String cl
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::add(String clientConfigKey, const char *clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::add(String clientConfigKey, const char *clientConfigValue)
 {
   if (clientConfigValue == "null")
   {
@@ -1473,27 +1246,27 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::add(String clientConfigKey, const cha
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::add(String clientConfigKey, int clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::add(String clientConfigKey, int clientConfigValue)
 {
   coreMQTT->addSensor(clientConfigKey, clientConfigValue, attr.docClientConf);
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::add(String clientConfigKey, float clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::add(String clientConfigKey, float clientConfigValue)
 {
   coreMQTT->addSensor(clientConfigKey, clientConfigValue, attr.docClientConf);
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::add(String clientConfigKey, boolean clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::add(String clientConfigKey, boolean clientConfigValue)
 {
   coreMQTT->addSensor(clientConfigKey, clientConfigValue, attr.docClientConf);
 }
 
-String MAGELLAN_SIM7600E_MQTT::ClientConfig::toJSONString()
+String MAGELLAN_MQTT_TEMP::ClientConfig::toJSONString()
 {
   return coreMQTT->buildSensorJSON(attr.docClientConf);
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::save()
+void MAGELLAN_MQTT_TEMP::ClientConfig::save()
 {
   String bufferPlayload = coreMQTT->buildSensorJSON(attr.docClientConf);
   boolean Pub_status = false;
@@ -1508,12 +1281,12 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::save()
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::save(String payload)
+void MAGELLAN_MQTT_TEMP::ClientConfig::save(String payload)
 {
   coreMQTT->reportClientConfig(payload);
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::remove(String clientConfigKey)
+void MAGELLAN_MQTT_TEMP::ClientConfig::remove(String clientConfigKey)
 {
   if (coreMQTT->findKey(clientConfigKey, attr.docClientConf))
   {
@@ -1525,12 +1298,12 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::remove(String clientConfigKey)
   }
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::ClientConfig::findKey(String clientConfigKey)
+boolean MAGELLAN_MQTT_TEMP::ClientConfig::findKey(String clientConfigKey)
 {
   return coreMQTT->findKey(clientConfigKey, attr.docClientConf);
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, String clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::update(String clientConfigKey, String clientConfigValue)
 {
   if (coreMQTT->findKey(clientConfigKey, attr.docClientConf))
   {
@@ -1543,7 +1316,7 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, String
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, const char *clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::update(String clientConfigKey, const char *clientConfigValue)
 {
   if (findKey(clientConfigKey))
   {
@@ -1556,7 +1329,7 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, const 
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, int clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::update(String clientConfigKey, int clientConfigValue)
 {
   if (findKey(clientConfigKey))
   {
@@ -1569,7 +1342,7 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, int cl
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, float clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::update(String clientConfigKey, float clientConfigValue)
 {
   if (findKey(clientConfigKey))
   {
@@ -1582,7 +1355,7 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, float 
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, boolean clientConfigValue)
+void MAGELLAN_MQTT_TEMP::ClientConfig::update(String clientConfigKey, boolean clientConfigValue)
 {
   if (findKey(clientConfigKey))
   {
@@ -1595,22 +1368,252 @@ void MAGELLAN_SIM7600E_MQTT::ClientConfig::update(String clientConfigKey, boolea
   }
 }
 
-void MAGELLAN_SIM7600E_MQTT::ClientConfig::clear()
+void MAGELLAN_MQTT_TEMP::ClientConfig::clear()
 {
   coreMQTT->clearSensorBuffer(attr.docClientConf);
 }
 
-void MAGELLAN_SIM7600E_MQTT::subscribes(func_callback_registerList cb_subscribe_list)
+OTA_state isUpToDate = OTA_state::UNKNOWN_STATE;
+void MAGELLAN_MQTT_TEMP::checkUpdate_inside()
+{
+  this->registerInfoOTA();
+  if (!attr.inProcessOTA && attr.flagAutoOTA)
+  {
+    Serial.println(F("#[Allow auto OTA]checkUpdate after open new connection or reconnect"));
+    isUpToDate = this->OTA.checkUpdate();
+    switch (isUpToDate)
+    {
+    case OTA_state::UNKNOWN_STATE:
+      Serial.println(F("#[Allow auto OTA] firmware profile is EMPTY or not set Publish"));
+      break;
+    case OTA_state::OUT_OF_DATE:
+      Serial.println(F("#[Allow auto OTA] firmware profile is OUT_OF_DATE"));
+      Serial.println(F("#[Allow auto OTA] OTA Execute start!"));
+      this->OTA.executeUpdate();
+      break;
+    case OTA_state::UP_TO_DATE:
+      Serial.println(F("#[Allow auto OTA] firmware profile is already UP_TO_DATE"));
+      break;
+    default:
+      Serial.println(F("#[Allow auto OTA] out of scope on checkUpdate"));
+      break;
+    }
+    attr.checkUpdate_inside = true;
+  }
+}
+
+unsigned long Prv_checkupdate = 0;
+void MAGELLAN_MQTT_TEMP::subscribes(func_callback_registerList cb_subscribe_list)
 {
   if (cb_subscribe_list != NULL)
   {
     duplicate_subs_list = cb_subscribe_list; // ver.1.1.2
   }
   coreMQTT->registerList(cb_subscribe_list);
+  // if (attr.flagAutoOTA && !attr.checkUpdate_inside)
+  // {
+  //   if (millis() - Prv_checkupdate >= attr.delayCheckUpdate_inside)
+  //   {
+  //     Prv_checkupdate = millis();
+  //     checkUpdate_inside();
+  //   }
+  // }
 }
 
-// 1.2.1
-void MAGELLAN_SIM7600E_MQTT::subscribesHandler(func_callback_registerList cb_onConnected)
+void MAGELLAN_MQTT_TEMP::interval(unsigned long second, func_callback_ms cb_interval)
+{
+  if (!attr.inProcessOTA)
+  {
+    coreMQTT->interval_ms(second * 1000, cb_interval);
+  }
+}
+
+boolean MAGELLAN_MQTT_TEMP::getServerTime()
+{
+  return coreMQTT->getTimestamp();
+}
+
+void MAGELLAN_MQTT_TEMP::getControl(String focusOnKey, ctrl_handleCallback ctrl_callback)
+{
+  attr.sub_check_list.SetSubscription(SubControlPlaintext, true);
+  coreMQTT->getControl(focusOnKey, ctrl_callback);
+}
+
+void MAGELLAN_MQTT_TEMP::getControl(ctrl_PTAhandleCallback ctrl_pta_callback)
+{
+  attr.sub_check_list.SetSubscription(SubControlPlaintext, true);
+  coreMQTT->getControl(ctrl_pta_callback);
+}
+
+void MAGELLAN_MQTT_TEMP::getControlJSON(ctrl_Json_handleCallback ctrl_json_callback)
+{
+  attr.sub_check_list.SetSubscription(SubControlJSON, true);
+  coreMQTT->getControlJSON(ctrl_json_callback);
+}
+
+void MAGELLAN_MQTT_TEMP::getControlJSON(ctrl_JsonOBJ_handleCallback jsonOBJ_cb)
+{
+  attr.sub_check_list.SetSubscription(SubControlJSON, true);
+  coreMQTT->getControlJSON(jsonOBJ_cb);
+}
+
+void MAGELLAN_MQTT_TEMP::getServerConfig(String focusOnKey, conf_handleCallback _conf_callback)
+{
+  attr.sub_check_list.SetSubscription(SubServerConfigPlaintext, true);
+  coreMQTT->getConfig(focusOnKey, _conf_callback);
+}
+
+void MAGELLAN_MQTT_TEMP::getServerConfig(conf_PTAhandleCallback conf_pta_callback)
+{
+  attr.sub_check_list.SetSubscription(SubServerConfigPlaintext, true);
+  coreMQTT->getConfig(conf_pta_callback);
+}
+
+void MAGELLAN_MQTT_TEMP::getServerConfigJSON(conf_Json_handleCallback conf_json_callback)
+{
+  attr.sub_check_list.SetSubscription(SubServerConfigJSON, true);
+  coreMQTT->getConfigJSON(conf_json_callback);
+}
+
+void MAGELLAN_MQTT_TEMP::getServerConfigJSON(conf_JsonOBJ_handleCallback jsonOBJ_cb)
+{
+  attr.sub_check_list.SetSubscription(SubServerConfigJSON, true);
+  coreMQTT->getConfigJSON(jsonOBJ_cb);
+}
+
+void MAGELLAN_MQTT_TEMP::getResponse(unsigned int eventResponse, resp_callback resp_cb)
+{
+  switch (eventResponse)
+  {
+  case UNIXTIME:
+    attr.sub_check_list.SetSubscription(SubServerTimePlaintext, true);
+    break;
+  case RESP_REPORT_JSON:
+    attr.sub_check_list.SetSubscription(SubReportResponseJSON, true);
+    break;
+  case RESP_REPORT_PLAINTEXT:
+    attr.sub_check_list.SetSubscription(SubReportResponsePlaintext, true);
+    break;
+  case RESP_HEARTBEAT_JSON:
+    attr.sub_check_list.SetSubscription(SubHeartbeatJSON, true);
+    break;
+  case RESP_HEARTBEAT_PLAINTEXT:
+    attr.sub_check_list.SetSubscription(SubHeartbeatPlaintext, true);
+    break;
+  default:
+    break;
+  }
+  coreMQTT->getRESP(eventResponse, resp_cb);
+}
+
+// @param sendingMsgId from user generate compare with recieve msgId inside callback
+// @param incomingMsgId from callback push data in EVENTS key MsgId
+boolean MAGELLAN_MQTT_TEMP::matchingMsgId(int sendingMsgId, int incomingMsgId)
+{
+  if (sendingMsgId == incomingMsgId)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
+void MAGELLAN_MQTT_TEMP::onDisconnect(cb_on_disconnect cb_disc)
+{
+  if (cb_disc != NULL)
+  {
+    func_on_disc = cb_disc;
+  }
+}
+
+// OTA Feature //////
+void MAGELLAN_MQTT_TEMP::OnTheAir::begin()
+{
+  if (attr.calculate_chunkSize > 4096)
+  {
+    Serial.print(F("#[Warning] activeOTA can't set chunk size: "));
+    Serial.print(attr.calculate_chunkSize);
+    Serial.print(F(" Chunk size Maximum is 4096 adjust chunk size to: "));
+    attr.calculate_chunkSize = 4096;
+    Serial.println(attr.calculate_chunkSize);
+    coreMQTT->activeOTA(attr.calculate_chunkSize, true);
+  }
+  else
+  {
+    coreMQTT->activeOTA(attr.calculate_chunkSize, true);
+  }
+}
+
+void MAGELLAN_MQTT_TEMP::OnTheAir::handle(boolean OTA_after_getInfo)
+{
+  coreMQTT->handleOTA(OTA_after_getInfo);
+}
+
+void MAGELLAN_MQTT_TEMP::OnTheAir::setChecksum(String md5Checksum)
+{
+  coreMQTT->setChecksum(md5Checksum);
+}
+
+boolean MAGELLAN_MQTT_TEMP::OnTheAir::Subscribe::firmwareInfo()
+{
+  return coreMQTT->registerInfoOTA();
+}
+
+boolean MAGELLAN_MQTT_TEMP::OnTheAir::Subscribe::firmwareDownload()
+{
+  return coreMQTT->registerDownloadOTA();
+}
+boolean MAGELLAN_MQTT_TEMP::OnTheAir::Unsubscribe::firmwareInfo()
+{
+  return coreMQTT->unregisterInfoOTA();
+}
+
+boolean MAGELLAN_MQTT_TEMP::OnTheAir::Unsubscribe::firmwareDownload()
+{
+  return coreMQTT->unregisterDownloadOTA();
+}
+
+boolean MAGELLAN_MQTT_TEMP::OnTheAir::getFirmwareInfo()
+{
+  return coreMQTT->requestFW_Info();
+}
+
+boolean MAGELLAN_MQTT_TEMP::OnTheAir::updateProgress(String FOTAstate, String description)
+{
+  return coreMQTT->updateProgressOTA(FOTAstate, description);
+}
+
+boolean flag_startOTA = false;
+boolean MAGELLAN_MQTT_TEMP::OnTheAir::downloadFirmware(unsigned int fw_chunkPart, size_t chunk_size)
+{
+  boolean statusDL = false;
+
+  if (coreMQTT->OTA_info.firmwareTotalSize <= 0 && !coreMQTT->OTA_info.isReadyOTA)
+  {
+    Serial.println(F("# [Warning] Can't downloadFirmware"));
+    Serial.println(F("# Don't have firmware OTA information in save or the thing don't have firmware OTA"));
+    Serial.println(F("# Make sure you get firmware Information first"));
+    statusDL = false;
+  }
+  else
+  {
+    if (chunk_size <= 0)
+    {
+      statusDL = coreMQTT->requestFW_Download(fw_chunkPart, attr.calculate_chunkSize);
+    }
+    else
+    {
+      statusDL = coreMQTT->requestFW_Download(fw_chunkPart, chunk_size);
+    }
+    flag_startOTA = true;
+  }
+  return statusDL;
+}
+
+// 1.1.2
+void MAGELLAN_MQTT_TEMP::subscribesHandler(func_callback_registerList cb_onConnected)
 {
   duplicate_subs_list = [&]
   {
@@ -1619,6 +1622,7 @@ void MAGELLAN_SIM7600E_MQTT::subscribesHandler(func_callback_registerList cb_onC
     {
       if (!attr.inProcessOTA)
       {
+        // if (attr.sub_check_list.SubControlPlaintext)
         if (attr.sub_check_list.GetSubscriptionStatus("SubControlPlaintext"))
         {
           coreMQTT->registerControl(PLAINTEXT);
@@ -1669,323 +1673,49 @@ void MAGELLAN_SIM7600E_MQTT::subscribesHandler(func_callback_registerList cb_onC
       {
         cb_onConnected();
       }
+      // else
+      // {
+      //   attr.triggerRemainSub = true;
+      //   Serial.println("@ Found OTA Inprocessing Unsubscribes unnecessary");
+      //   if (attr.sub_check_list.SubControlPlaintext)
+      //     coreMQTT->unregisterControl(PLAINTEXT);
+      //   if (attr.sub_check_list.SubControlJSON)
+      //     coreMQTT->unregisterControl(JSON);
+      //   if (attr.sub_check_list.SubServerConfigPlaintext)
+      //     coreMQTT->unregisterConfig(PLAINTEXT);
+      //   if (attr.sub_check_list.SubServerConfigJSON)
+      //     coreMQTT->unregisterConfig(JSON);
+      //   if (attr.sub_check_list.SubServerTimePlaintext)
+      //     coreMQTT->unregisterTimestamp(PLAINTEXT);
+      //   if (attr.sub_check_list.SubServerTimeJSON)
+      //     coreMQTT->unregisterTimestamp(JSON);
+      //   if (attr.sub_check_list.SubReportResponseJSON)
+      //     coreMQTT->unregisterResponseReport(JSON);
+      //   if (attr.sub_check_list.SubReportResponsePlaintext)
+      //     coreMQTT->unregisterResponseReport(PLAINTEXT);
+      //   if (attr.sub_check_list.SubHeartbeatJSON)
+      //     coreMQTT->unregisterResponseHeartbeat(JSON);
+      //   if (attr.sub_check_list.SubHeartbeatPlaintext)
+      //     coreMQTT->unregisterResponseHeartbeat(PLAINTEXT);
+      //   if (attr.sub_check_list.SubReportWithTimestamp)
+      //     coreMQTT->unregisterResponseReportTimestamp();
+      // }
     }
   };
   coreMQTT->registerList(duplicate_subs_list);
 }
 
-void MAGELLAN_SIM7600E_MQTT::interval(unsigned long second, func_callback_ms cb_interval)
-{
-  if (!attr.inProcessOTA)
-  {
-    coreMQTT->interval_ms(second * 1000, cb_interval);
-  }
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::getServerTime()
-{
-  return coreMQTT->getTimestamp();
-}
-
-void MAGELLAN_SIM7600E_MQTT::getControl(String focusOnKey, ctrl_handleCallback ctrl_callback)
-{
-  attr.sub_check_list.SetSubscription(SubControlPlaintext, true);
-  coreMQTT->getControl(focusOnKey, ctrl_callback);
-}
-
-void MAGELLAN_SIM7600E_MQTT::getControl(ctrl_PTAhandleCallback ctrl_pta_callback)
-{
-  attr.sub_check_list.SetSubscription(SubControlPlaintext, true);
-  coreMQTT->getControl(ctrl_pta_callback);
-}
-
-void MAGELLAN_SIM7600E_MQTT::getControlJSON(ctrl_Json_handleCallback ctrl_json_callback)
-{
-  attr.sub_check_list.SetSubscription(SubControlJSON, true);
-  coreMQTT->getControlJSON(ctrl_json_callback);
-}
-
-void MAGELLAN_SIM7600E_MQTT::getControlJSON(ctrl_JsonOBJ_handleCallback jsonOBJ_cb)
-{
-  attr.sub_check_list.SetSubscription(SubControlJSON, true);
-  coreMQTT->getControlJSON(jsonOBJ_cb);
-}
-
-void MAGELLAN_SIM7600E_MQTT::getServerConfig(String focusOnKey, conf_handleCallback _conf_callback)
-{
-  attr.sub_check_list.SetSubscription(SubServerConfigPlaintext, true);
-  coreMQTT->getConfig(focusOnKey, _conf_callback);
-}
-
-void MAGELLAN_SIM7600E_MQTT::getServerConfig(conf_PTAhandleCallback conf_pta_callback)
-{
-  attr.sub_check_list.SetSubscription(SubServerConfigPlaintext, true);
-  coreMQTT->getConfig(conf_pta_callback);
-}
-
-void MAGELLAN_SIM7600E_MQTT::getServerConfigJSON(conf_Json_handleCallback conf_json_callback)
-{
-  attr.sub_check_list.SetSubscription(SubServerConfigJSON, true);
-  coreMQTT->getConfigJSON(conf_json_callback);
-}
-
-void MAGELLAN_SIM7600E_MQTT::getServerConfigJSON(conf_JsonOBJ_handleCallback jsonOBJ_cb)
-{
-  attr.sub_check_list.SetSubscription(SubServerConfigJSON, true);
-  coreMQTT->getConfigJSON(jsonOBJ_cb);
-}
-
-void MAGELLAN_SIM7600E_MQTT::getResponse(unsigned int eventResponse, resp_callback resp_cb)
-{
-  switch (eventResponse)
-  {
-  case UNIXTIME:
-    attr.sub_check_list.SetSubscription(SubServerTimePlaintext, true);
-    break;
-  case RESP_REPORT_JSON:
-    attr.sub_check_list.SetSubscription(SubReportResponseJSON, true);
-    break;
-  case RESP_REPORT_PLAINTEXT:
-    attr.sub_check_list.SetSubscription(SubReportResponsePlaintext, true);
-    break;
-  case RESP_HEARTBEAT_JSON:
-    attr.sub_check_list.SetSubscription(SubHeartbeatJSON, true);
-    break;
-  case RESP_HEARTBEAT_PLAINTEXT:
-    attr.sub_check_list.SetSubscription(SubHeartbeatPlaintext, true);
-    break;
-  default:
-    break;
-  }
-  coreMQTT->getRESP(eventResponse, resp_cb);
-}
-
-// OTA Feature //////
-void MAGELLAN_SIM7600E_MQTT::OnTheAir::begin()
-{
-  if (attr.calculate_chunkSize > 4096)
-  {
-    Serial.print(F("#[Warning] activeOTA can't set part size: "));
-    Serial.print(attr.calculate_chunkSize);
-    Serial.print(F(" Part size Maximum is 4096 adjust part size to: "));
-    attr.calculate_chunkSize = 4096;
-    Serial.println(attr.calculate_chunkSize);
-    coreMQTT->activeOTA(attr.calculate_chunkSize, true);
-  }
-  else
-  {
-    coreMQTT->activeOTA(attr.calculate_chunkSize, true);
-  }
-}
-
-void MAGELLAN_SIM7600E_MQTT::OnTheAir::handle(boolean OTA_after_getInfo)
-{
-  coreMQTT->handleOTA(OTA_after_getInfo);
-}
-
-void MAGELLAN_SIM7600E_MQTT::OnTheAir::setChecksum(String md5Checksum)
-{
-  coreMQTT->setChecksum(md5Checksum);
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::Subscribe::firmwareInfo()
-{
-  return coreMQTT->registerInfoOTA();
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::Subscribe::firmwareDownload()
-{
-  return coreMQTT->registerDownloadOTA();
-}
-boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::Unsubscribe::firmwareInfo()
-{
-  return coreMQTT->unregisterInfoOTA();
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::Unsubscribe::firmwareDownload()
-{
-  return coreMQTT->unregisterDownloadOTA();
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::getFirmwareInfo()
-{
-  return coreMQTT->requestFW_Info();
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::updateProgress(String FOTAstate, String description)
-{
-  return coreMQTT->updateProgressOTA(FOTAstate, description);
-}
-
-boolean flag_startOTA = false;
-boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::downloadFirmware(unsigned int fw_part, size_t part_size)
-{
-  boolean statusDL = false;
-
-  if (coreMQTT->OTA_info.firmwareTotalSize <= 0 && !coreMQTT->OTA_info.isReadyOTA)
-  {
-    Serial.println(F("# [Warning] Can't downloadFirmware"));
-    Serial.println(F("# Don't have firmware OTA information in save or the thing don't have firmware OTA"));
-    Serial.println(F("# Make sure you get firmware Information first"));
-    statusDL = false;
-  }
-  else
-  {
-    if (part_size <= 0)
-    {
-      statusDL = coreMQTT->requestFW_Download(fw_part, attr.calculate_chunkSize);
-    }
-    else
-    {
-      statusDL = coreMQTT->requestFW_Download(fw_part, part_size);
-    }
-    flag_startOTA = true;
-  }
-  return statusDL;
-}
-OTA_INFO MAGELLAN_SIM7600E_MQTT::OnTheAir::utility()
+OTA_INFO MAGELLAN_MQTT_TEMP::OnTheAir::utility()
 {
   return coreMQTT->OTA_info;
 }
 
-boolean exc_until_info_fwReady = true;
-int MaxIfUnknownVersion = 15;
-int countIfUnknownVersion = 0;
-unsigned long exc_prvMillis = 0;
-void MAGELLAN_SIM7600E_MQTT::OnTheAir::executeUpdate()
-{
-  OTA_info.firmwareIsUpToDate = OTA_state::UNKNOWN_STATE; // back to Unknown for recieve new firmware status
-
-  if (!exc_until_info_fwReady)
-  {
-    Serial.println(F("# Dubug protect debounce spam function execute"));
-    return;
-  }
-  countIfUnknownVersion = 0;
-  exc_until_info_fwReady = false;
-  attr.usingCheckUpdate = false;
-  Serial.println(F("# Execute Update!!!"));
-  coreMQTT->registerDownloadOTA();
-  coreMQTT->registerInfoOTA();
-  attr.flagAutoOTA = true;
-
-  while (true)
-  {
-    coreMQTT->loop();
-    coreMQTT->handleOTA(true);
-    if (millis() - exc_prvMillis > 5000 && !exc_until_info_fwReady) // get fw info every 5sec until fwReady
-    {
-
-      exc_prvMillis = millis();
-      if (OTA_info.firmwareIsUpToDate == OTA_state::UNKNOWN_STATE)
-      {
-        countIfUnknownVersion++;
-        attr.usingCheckUpdate = false;
-        coreMQTT->requestFW_Info(); // getFirmwareInfo
-        if (countIfUnknownVersion > MaxIfUnknownVersion)
-        {
-          Serial.println(F(""));
-          Serial.println(F("# ====================================="));
-          Serial.println(F("# No response from request firmware information"));
-          Serial.println(F("# ====================================="));
-          Serial.println(F(""));
-          countIfUnknownVersion = 0;
-          if (attr.isBypassAutoUpdate)
-          {
-            attr.flagAutoOTA = false;
-          }
-          else
-          {
-            attr.flagAutoOTA = true;
-          }
-          exc_until_info_fwReady = true;
-          break;
-        }
-      }
-
-      else if (OTA_info.firmwareIsUpToDate == OTA_state::UP_TO_DATE)
-      {
-        Serial.println(F(""));
-        Serial.println(F("# ====================================="));
-        Serial.println(F("# Firmware is up to date execute cancel"));
-        Serial.println(F("# ====================================="));
-        Serial.println(F(""));
-        exc_until_info_fwReady = true;
-        if (attr.isBypassAutoUpdate)
-        {
-          attr.flagAutoOTA = false;
-        }
-        else
-        {
-          attr.flagAutoOTA = true;
-        }
-        break;
-      }
-
-      else if (OTA_info.firmwareIsUpToDate == OTA_state::OUT_OF_DATE)
-      {
-        exc_until_info_fwReady = attr.startReqDownloadOTA;
-        if (!attr.inProcessOTA)
-        {
-          Serial.println(F(""));
-          Serial.println(F("# ====================================="));
-          Serial.println(F("# Execute start"));
-          Serial.println(F("# ====================================="));
-          Serial.println(F(""));
-        }
-      }
-    }
-    if (OTA_info.firmwareIsUpToDate == OTA_state::UP_TO_DATE && exc_until_info_fwReady)
-    {
-      exc_until_info_fwReady = true;
-      Serial.println(F("# Debug Uptodate but infinity loop [UP_TO_DATE]"));
-      break;
-    }
-    else if (OTA_info.firmwareIsUpToDate == OTA_state::UNKNOWN_STATE && exc_until_info_fwReady)
-    {
-      exc_until_info_fwReady = true;
-      Serial.println(F("# Debug Uptodate but infinity loop [UNKNOWN]"));
-      break;
-    }
-    if (!coreMQTT->isConnected())
-    {
-      exc_until_info_fwReady = true;
-      Serial.println(F("# Debug client disconnect while OTA"));
-      break;
-    }
-  }
-}
-void MAGELLAN_SIM7600E_MQTT::OnTheAir::autoUpdate(boolean flagSetAuto)
-{
-  attr.flagAutoOTA = flagSetAuto;
-  if (!attr.flagAutoOTA)
-  {
-    attr.isBypassAutoUpdate = true;
-    coreMQTT->unregisterDownloadOTA();
-  }
-  else
-  {
-    attr.isBypassAutoUpdate = false;
-    coreMQTT->registerDownloadOTA();
-  }
-  Serial.println("# Set auto update mode: " + String((attr.flagAutoOTA == true) ? "ENABLE" : "DISABLE"));
-}
-
-boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::getAutoUpdate()
-{
-  // boolean mode = attr.flagAutoOTA;
-  // Serial.print(F("# Auto update mode: "));
-  // Serial.println((mode)? "ENABLE":"DISABLE");
-  return attr.flagAutoOTA;
-}
-
-int maxCheckUpdate = 10;
+int maxCheckUpdate = 5;
 int countCheckUpdate = 0;
 boolean checkUntil_end = false;
 unsigned long check_prvMillis = 0;
 unsigned long diff_timeMillis = 0;
-// int MAGELLAN_SIM7600E_MQTT::OnTheAir::checkUpdate()
-OTA_state MAGELLAN_SIM7600E_MQTT::OnTheAir::checkUpdate() // 1.2.1
+OTA_state MAGELLAN_MQTT_TEMP::OnTheAir::checkUpdate()
 {
   if (attr.usingCheckUpdate)
   {
@@ -2017,7 +1747,7 @@ OTA_state MAGELLAN_SIM7600E_MQTT::OnTheAir::checkUpdate() // 1.2.1
           checkUntil_end = true;
           Serial.println(F(""));
           Serial.println(F("# ====================================="));
-          Serial.println(F("# No response from request firmware information"));
+          Serial.println(F("# No  response from request firmware information"));
           Serial.println(F("# ====================================="));
           Serial.println(F(""));
           countCheckUpdate = 0;
@@ -2044,12 +1774,10 @@ OTA_state MAGELLAN_SIM7600E_MQTT::OnTheAir::checkUpdate() // 1.2.1
         Serial.println(F("# Debug Device not found or don't have FOTA Profile"));
         Serial.println(F("# ====================================="));
       }
-
       if (!attr.usingCheckUpdate)
       {
         checkUntil_end = true;
         Serial.println(F("# ====================================="));
-        Serial.println(F("# Debug Timeout check update when get response"));
         Serial.println(F("# Debug already get response"));
         Serial.println(F("# ====================================="));
         break;
@@ -2068,12 +1796,143 @@ OTA_state MAGELLAN_SIM7600E_MQTT::OnTheAir::checkUpdate() // 1.2.1
   return coreMQTT->OTA_info.firmwareIsUpToDate;
 }
 
-String MAGELLAN_SIM7600E_MQTT::OnTheAir::readDeviceInfo()
+int MaxIfUnknownVersion = 5;
+int countIfUnknownVersion = 0;
+boolean exc_until_info_fwReady = true;
+unsigned long exc_prvMillis = 0;
+void MAGELLAN_MQTT_TEMP::OnTheAir::executeUpdate()
+{
+  coreMQTT->OTA_info.firmwareIsUpToDate = OTA_state::UNKNOWN_STATE; // back to Unknown for recieve new firmware status
+
+  if (!exc_until_info_fwReady)
+  {
+    Serial.println(F("# Dubug protect debounce spam function execute"));
+    return;
+  }
+  countIfUnknownVersion = 0;
+  exc_until_info_fwReady = false;
+  attr.usingCheckUpdate = false;
+  Serial.println(F("# Execute Update!!!"));
+  coreMQTT->registerDownloadOTA();
+  coreMQTT->registerInfoOTA();
+  attr.flagAutoOTA = true;
+  while (true)
+  {
+    coreMQTT->loop();
+    coreMQTT->handleOTA(true);
+    if (millis() - exc_prvMillis > 5000 && !exc_until_info_fwReady) // get fw info every 5sec until fwReady
+    {
+
+      exc_prvMillis = millis();
+
+      if (OTA_info.firmwareIsUpToDate == OTA_state::UNKNOWN_STATE)
+      {
+        countIfUnknownVersion++;
+        attr.usingCheckUpdate = false;
+        coreMQTT->requestFW_Info(); // getFirmwareInfo
+        if (countIfUnknownVersion > MaxIfUnknownVersion)
+        {
+          Serial.println(F(""));
+          Serial.println(F("# ====================================="));
+          Serial.println(F("# No response from request firmware information"));
+          Serial.println(F("# Execute cancel"));
+          Serial.println(F("# ====================================="));
+          Serial.println(F(""));
+          countIfUnknownVersion = 0;
+          if (attr.isBypassAutoUpdate) // back to existing
+          {
+            attr.flagAutoOTA = false;
+          }
+          else
+          {
+            attr.flagAutoOTA = true;
+          }
+          exc_until_info_fwReady = true;
+          break;
+        }
+      }
+      else if (OTA_info.firmwareIsUpToDate == OTA_state::UP_TO_DATE)
+      {
+        Serial.println(F(""));
+        Serial.println(F("# ====================================="));
+        Serial.println(F("# Firmware is up to date execute cancel"));
+        Serial.println(F("# ====================================="));
+        Serial.println(F(""));
+        exc_until_info_fwReady = true;
+        if (attr.isBypassAutoUpdate)
+        {
+          attr.flagAutoOTA = false;
+        }
+        else
+        {
+          attr.flagAutoOTA = true;
+        }
+        break;
+      }
+      else if (OTA_info.firmwareIsUpToDate == OTA_state::OUT_OF_DATE)
+      {
+        exc_until_info_fwReady = attr.startReqDownloadOTA;
+        if (!attr.inProcessOTA)
+        {
+          Serial.println(F(""));
+          Serial.println(F("# ====================================="));
+          Serial.println(F("# Execute start"));
+          Serial.println(F("# ====================================="));
+          Serial.println(F(""));
+        }
+      }
+    }
+    if (OTA_info.firmwareIsUpToDate == OTA_state::OUT_OF_DATE && exc_until_info_fwReady)
+    {
+      exc_until_info_fwReady = true;
+      Serial.println(F("# Debug Uptodate but infinity loop [UP_TO_DATE]"));
+      break;
+    }
+    else if (OTA_info.firmwareIsUpToDate == OTA_state::UNKNOWN_STATE && exc_until_info_fwReady)
+    {
+      exc_until_info_fwReady = true;
+      Serial.println(F("# Debug Uptodate but infinity loop [UNKNOWN]"));
+      break;
+    }
+    if (!coreMQTT->isConnected())
+    {
+      exc_until_info_fwReady = true;
+      Serial.println(F("# Debug client disconnect while OTA"));
+      break;
+    }
+  }
+}
+
+void MAGELLAN_MQTT_TEMP::OnTheAir::autoUpdate(boolean flagSetAuto)
+{
+  attr.flagAutoOTA = flagSetAuto;
+  if (!flagSetAuto)
+  {
+    attr.isBypassAutoUpdate = true;
+    coreMQTT->unregisterDownloadOTA();
+  }
+  else
+  {
+    attr.isBypassAutoUpdate = false;
+    coreMQTT->registerDownloadOTA();
+  }
+  Serial.println("# Set auto update mode: " + String((attr.flagAutoOTA == true) ? "ENABLE" : "DISABLE"));
+}
+
+boolean MAGELLAN_MQTT_TEMP::OnTheAir::getAutoUpdate()
+{
+  // boolean mode = attr.flagAutoOTA;
+  // Serial.print(F("# Auto update : "));
+  // Serial.println((mode)? "ENABLE":"DISABLE");
+  return attr.flagAutoOTA;
+}
+
+String MAGELLAN_MQTT_TEMP::OnTheAir::readDeviceInfo()
 {
   return configOTAFile.readLastedOTA();
 }
 
-boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::start()
+boolean MAGELLAN_MQTT_TEMP::OnTheAir::start()
 {
   if (!flag_startOTA)
   {
@@ -2084,29 +1943,27 @@ boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::start()
 }
 /////////////////////
 
-String MAGELLAN_SIM7600E_MQTT::Utility::toDateTimeString(unsigned long unixtTime, int timeZone)
+String MAGELLAN_MQTT_TEMP::Utility::toDateTimeString(unsigned long unixtTime, int timeZone)
 {
   return utls.toDateTimeString(unixtTime, timeZone);
 }
 
-String MAGELLAN_SIM7600E_MQTT::Utility::toUniversalTime(unsigned long unixtTime, int timeZone)
+String MAGELLAN_MQTT_TEMP::Utility::toUniversalTime(unsigned long unixtTime, int timeZone)
 {
   return utls.toUniversalTime(unixtTime, timeZone);
 }
 
-unsigned long MAGELLAN_SIM7600E_MQTT::Utility::toUnix(tm time_)
+unsigned long MAGELLAN_MQTT_TEMP::Utility::toUnix(tm time_)
 {
   return utls.toUnix(time_);
 }
 
-tm MAGELLAN_SIM7600E_MQTT::Utility::convertUnix(unsigned long unix, int timeZone)
+tm MAGELLAN_MQTT_TEMP::Utility::convertUnix(unsigned long unix, int timeZone)
 {
   return utls.convertUnix(unix, timeZone);
 }
 
-/////////////////////
-
-// v1.1.2
+// v1.1.0
 void adjust_BufferForMedia(size_t len_payload)
 {
   if (len_payload <= (size_t)attr.max_payload_report)
@@ -2144,31 +2001,18 @@ JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs)
   return JsonDocInfo;
 }
 
-unsigned int MAGELLAN_SIM7600E_MQTT::OnTheAir::Downloads::getDelay()
+unsigned int MAGELLAN_MQTT_TEMP::OnTheAir::Downloads::getDelay()
 {
   return attr.delayRequest_download;
 }
 
-void MAGELLAN_SIM7600E_MQTT::OnTheAir::Downloads::setDelay(unsigned int delayMillis)
+void MAGELLAN_MQTT_TEMP::OnTheAir::Downloads::setDelay(unsigned int delayMillis)
 {
   attr.delayRequest_download = delayMillis;
 }
 
-void checkLimitationPayload(size_t len_payload, size_t limitation)
-{
-  if (attr.clientNetInterface == useGSMClient)
-  {
-    if (len_payload > limitation) // GSM max 1500(topic(66) + payload)
-    {
-      Serial.println();
-      Serial.println(F("# [ERROR] Report payload failure because GSMClient maximum package data(topic + payload) length is 1500"));
-      Serial.println();
-    }
-  }
-}
-
 #ifdef BYPASS_REQTOKEN
-void MAGELLAN_SIM7600E_MQTT::setManualToken(String token_)
+void MAGELLAN_MQTT_TEMP::setManualToken(String token_)
 {
   this->coreMQTT->setManualToken(token_);
 }
