@@ -29,7 +29,7 @@ Modified: 22 may 2023.
 */
 
 #include "MAGELLAN_SIM7600E_MQTT.h"
-void adjust_BufferForMedia(size_t len_payload);
+static void adjust_BufferForMedia(size_t len_payload);
 void checkLimitationPayload(size_t len_payload, size_t limitation);
 unsigned long prev_millis_retrans = 0;
 unsigned long prev_millis_timeout = 0;
@@ -39,7 +39,7 @@ struct JsonDocUtils
   size_t max_size;
   size_t safety_size;
 };
-JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs);
+static JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs);
 
 MAGELLAN_MQTT_device_core *MAGELLAN_SIM7600E_MQTT::coreMQTT = NULL;
 Setting sim7600_setting;
@@ -1817,7 +1817,7 @@ boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::updateProgress(String FOTAstate, Strin
   return coreMQTT->updateProgressOTA(FOTAstate, description);
 }
 
-boolean flag_startOTA = false;
+static boolean flag_startOTA = false;
 boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::downloadFirmware(unsigned int fw_part, size_t part_size)
 {
   boolean statusDL = false;
@@ -1848,10 +1848,10 @@ OTA_INFO MAGELLAN_SIM7600E_MQTT::OnTheAir::utility()
   return coreMQTT->OTA_info;
 }
 
-boolean exc_until_info_fwReady = true;
-int MaxIfUnknownVersion = 15;
-int countIfUnknownVersion = 0;
-unsigned long exc_prvMillis = 0;
+static boolean exc_until_info_fwReady = true;
+static int MaxIfUnknownVersion = 15;
+static int countIfUnknownVersion = 0;
+static unsigned long exc_prvMillis = 0;
 void MAGELLAN_SIM7600E_MQTT::OnTheAir::executeUpdate()
 {
   OTA_info.firmwareIsUpToDate = OTA_state::UNKNOWN_STATE; // back to Unknown for recieve new firmware status
@@ -1979,11 +1979,11 @@ boolean MAGELLAN_SIM7600E_MQTT::OnTheAir::getAutoUpdate()
   return attr.flagAutoOTA;
 }
 
-int maxCheckUpdate = 10;
-int countCheckUpdate = 0;
-boolean checkUntil_end = false;
-unsigned long check_prvMillis = 0;
-unsigned long diff_timeMillis = 0;
+static int maxCheckUpdate = 10;
+static int countCheckUpdate = 0;
+static boolean checkUntil_end = false;
+static unsigned long check_prvMillis = 0;
+static unsigned long diff_timeMillis = 0;
 // int MAGELLAN_SIM7600E_MQTT::OnTheAir::checkUpdate()
 OTA_state MAGELLAN_SIM7600E_MQTT::OnTheAir::checkUpdate() // 1.2.1
 {
@@ -2107,7 +2107,7 @@ tm MAGELLAN_SIM7600E_MQTT::Utility::convertUnix(unsigned long unix, int timeZone
 /////////////////////
 
 // v1.1.2
-void adjust_BufferForMedia(size_t len_payload)
+static void adjust_BufferForMedia(size_t len_payload)
 {
   if (len_payload <= (size_t)attr.max_payload_report)
   {
@@ -2132,7 +2132,7 @@ void adjust_BufferForMedia(size_t len_payload)
   }
 }
 
-JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs)
+static JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs)
 {
   JsonDocUtils JsonDocInfo;
   size_t mmr_usage = ref_docs.memoryUsage();
