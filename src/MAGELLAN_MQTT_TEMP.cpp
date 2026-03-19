@@ -40,14 +40,14 @@ Modified: 22 dec 2025.
 #include "MAGELLAN_MQTT_TEMP.h"
 cb_on_disconnect func_on_disc;
 
-void adjust_BufferForMedia(size_t len_payload);
+static void adjust_BufferForMedia(size_t len_payload);
 struct JsonDocUtils
 {
   size_t used;
   size_t max_size;
   size_t safety_size;
 };
-JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs);
+static JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs);
 
 MAGELLAN_MQTT_device_core *MAGELLAN_MQTT_TEMP::coreMQTT = NULL;
 MagellanSetting setting;
@@ -1585,7 +1585,7 @@ boolean MAGELLAN_MQTT_TEMP::OnTheAir::updateProgress(String FOTAstate, String de
   return coreMQTT->updateProgressOTA(FOTAstate, description);
 }
 
-boolean flag_startOTA = false;
+static boolean flag_startOTA = false;
 boolean MAGELLAN_MQTT_TEMP::OnTheAir::downloadFirmware(unsigned int fw_chunkPart, size_t chunk_size)
 {
   boolean statusDL = false;
@@ -1710,11 +1710,11 @@ OTA_INFO MAGELLAN_MQTT_TEMP::OnTheAir::utility()
   return coreMQTT->OTA_info;
 }
 
-int maxCheckUpdate = 5;
-int countCheckUpdate = 0;
-boolean checkUntil_end = false;
-unsigned long check_prvMillis = 0;
-unsigned long diff_timeMillis = 0;
+static int maxCheckUpdate = 5;
+static int countCheckUpdate = 0;
+static boolean checkUntil_end = false;
+static unsigned long check_prvMillis = 0;
+static unsigned long diff_timeMillis = 0;
 OTA_state MAGELLAN_MQTT_TEMP::OnTheAir::checkUpdate()
 {
   if (attr.usingCheckUpdate)
@@ -1796,10 +1796,10 @@ OTA_state MAGELLAN_MQTT_TEMP::OnTheAir::checkUpdate()
   return coreMQTT->OTA_info.firmwareIsUpToDate;
 }
 
-int MaxIfUnknownVersion = 5;
-int countIfUnknownVersion = 0;
-boolean exc_until_info_fwReady = true;
-unsigned long exc_prvMillis = 0;
+static int MaxIfUnknownVersion = 5;
+static int countIfUnknownVersion = 0;
+static boolean exc_until_info_fwReady = true;
+static unsigned long exc_prvMillis = 0;
 void MAGELLAN_MQTT_TEMP::OnTheAir::executeUpdate()
 {
   coreMQTT->OTA_info.firmwareIsUpToDate = OTA_state::UNKNOWN_STATE; // back to Unknown for recieve new firmware status
@@ -1964,7 +1964,7 @@ tm MAGELLAN_MQTT_TEMP::Utility::convertUnix(unsigned long unix, int timeZone)
 }
 
 // v1.1.0
-void adjust_BufferForMedia(size_t len_payload)
+static void adjust_BufferForMedia(size_t len_payload)
 {
   if (len_payload <= (size_t)attr.max_payload_report)
   {
@@ -1989,7 +1989,7 @@ void adjust_BufferForMedia(size_t len_payload)
   }
 }
 
-JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs)
+static JsonDocUtils readSafetyCapacity_Json_doc(JsonDocument &ref_docs)
 {
   JsonDocUtils JsonDocInfo;
   size_t mmr_usage = ref_docs.memoryUsage();
