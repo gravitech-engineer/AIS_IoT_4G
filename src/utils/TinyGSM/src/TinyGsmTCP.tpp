@@ -21,15 +21,17 @@
 
 // Because of the ordering of resolution of overrides in templates, these need
 // to be written out every time.  This macro is to shorten that.
+// Default bounded to 20s (was 75s): a stuck/bad socket must not block every 2-arg
+// connect() call - including PubSubClient's internal fallback - for that long.
 #define TINY_GSM_CLIENT_CONNECT_OVERRIDES                             \
   int connect(IPAddress ip, uint16_t port, int timeout_s) {           \
     return connect(TinyGsmStringFromIp(ip).c_str(), port, timeout_s); \
   }                                                                   \
   int connect(const char* host, uint16_t port) override {             \
-    return connect(host, port, 75);                                   \
+    return connect(host, port, 20);                                   \
   }                                                                   \
   int connect(IPAddress ip, uint16_t port) override {                 \
-    return connect(ip, port, 75);                                     \
+    return connect(ip, port, 20);                                     \
   }
 
 // // For modules that do not store incoming data in any sort of buffer

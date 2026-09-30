@@ -25,7 +25,7 @@ support esp32, esp8266
 
 Author:(POC Device Magellan team)
 Create Date: 25 April 2022.
-Modified: 22 dec 2025.
+Modified: 30 September 2026.
 */
 
 /*
@@ -157,9 +157,14 @@ void MAGELLAN_MQTT_4G_BOARD::powerModem()
   delay(5000);
 }
 
+bool MAGELLAN_MQTT_4G_BOARD::isDataPathReady()
+{
+  return _modem.isGprsConnected() && _modem.localIP() != IPAddress(0, 0, 0, 0);
+}
+
 void MAGELLAN_MQTT_4G_BOARD::connectModem()
 {
-  if (_modem.isGprsConnected())
+  if (this->isDataPathReady())
   {
     MG_LOG_I("GPRS already connected. Skip reconnect.");
     return;
@@ -200,24 +205,27 @@ void MAGELLAN_MQTT_4G_BOARD::connectModem()
     }
   }
   MG_LOG_I("modem connected!");
+  // PDP context can report success before the data path is actually routable; give it
+  // a moment to settle before the caller immediately tries an MQTT/TCP connection.
+  delay(1500); // Wait for data path to settle
 }
 static unsigned long _prev_checkModem_millis = 0;
 void MAGELLAN_MQTT_4G_BOARD::checkModem()
 {
   unsigned long now = millis();
-  // Rate-limit reconnect attempts: wait 500 ms between tries to let PPP stabilise
+  // Rate-limit reconnect attempts: wait 5000 ms between tries to let recovery stabilise
   if (now - _prev_checkModem_millis >= 5000)
   {
     _prev_checkModem_millis = now;
-    if (!_modem.isGprsConnected())
+    if (!this->isDataPathReady())
     {
       if (!_modem.isNetworkConnected())
       {
         MG_LOG_E("Cellular Network is registering in background... skip this round.");
         return;
       }
-      MG_LOG_I("Reconnecting PPP...");
-      _modem.gprsConnect(_apn);
+      MG_LOG_I("Data path not ready. Performing recovery...");
+      this->recoverCellular();
       return;
     }
   }
@@ -261,7 +269,7 @@ void MAGELLAN_MQTT_4G_BOARD::handleModemMagellan()
   if (millis() - lastNetCheckTime >= netCheckInterval)
   {
     lastNetCheckTime = millis(); // อัปเดตเวลาล่าสุด
-    if (!_modem.isGprsConnected())
+    if (!this->isDataPathReady())
     {
       if (!_modem.isNetworkConnected())
       {
@@ -269,9 +277,9 @@ void MAGELLAN_MQTT_4G_BOARD::handleModemMagellan()
         return;
       }
 
-      // ถ้าสัญญาณเสายังดี แต่ท่อเน็ตปิดอยู่ ให้สั่งเปิดท่อเน็ต GPRS
-      MG_LOG_I("Network ready. Opening GPRS tunnel...");
-      _modem.gprsConnect(_apn);
+      // ถ้าสัญญาณเสายังดี แต่ท่อเน็ตปิดอยู่ ให้เรียก recoverCellular สำหรับการกู้คืนแบบเต็มรูปแบบ
+      MG_LOG_I("Network ready but data path not ready. Performing full recovery...");
+      this->recoverCellular();
       return;
     }
 
@@ -283,18 +291,313 @@ void MAGELLAN_MQTT_4G_BOARD::handleModemMagellan()
   }
 }
 
+bool MAGELLAN_MQTT_4G_BOARD::resolveDomain(const char *domain, IPAddress &ip)
+{
+  TinyGsm &modem = this->getGSMModem();
+
+  MG_LOG_I("[DNS] Resolving %s", domain);
+
+  modem.sendAT("+CDNSGIP=\"", domain, "\"");
+
+  uint32_t start = millis();
+
+  while (millis() - start < 15000)
+  {
+    if (modem.stream.available())
+    {
+      String line = modem.stream.readStringUntil('\n');
+      line.trim();
+
+      // MG_LOG_D("[DNS] %s", line.c_str());
+
+      if (line.startsWith("+CDNSGIP:"))
+      {
+
+        int q1 = line.indexOf('"');
+        int q2 = line.indexOf('"', q1 + 1);
+        int q3 = line.indexOf('"', q2 + 1);
+        int q4 = line.indexOf('"', q3 + 1);
+
+        if (q3 >= 0 && q4 > q3)
+        {
+          String ipStr = line.substring(q3 + 1, q4);
+
+          if (ip.fromString(ipStr))
+          {
+            // MG_LOG_I("[DNS] %s -> %s",
+            //          domain,
+            //          ip.toString().c_str());
+            return true;
+          }
+        }
+      }
+
+      if (line == "ERROR")
+        return false;
+    }
+
+    delay(10);
+  }
+
+  MG_LOG_E("[DNS] Timeout resolving %s", domain);
+  return false;
+}
+
+String MAGELLAN_MQTT_4G_BOARD::printServingCell()
+{
+  auto &modem = this->getGSMModem();
+
+  // Serial.println("=== SERVING CELL ===");
+  modem.sendAT("+CPSI?");
+  String response;
+
+  int8_t result = modem.waitResponse(
+      3000L,
+      response);
+
+  // Serial.printf("CPSI status: %d\n", status);
+  // Serial.println("Raw response:");
+  // Serial.println(response);
+
+  response.replace("OK", "");
+  response.trim(); // Removes trailing \r and \n
+
+  if (result != 1)
+  {
+    return "";
+  }
+
+  int start = response.indexOf("+CPSI:");
+  if (start < 0)
+  {
+    return "";
+  }
+
+  int end = response.indexOf('\r', start);
+  if (end < 0)
+  {
+    end = response.indexOf('\n', start);
+  }
+
+  return end >= 0 ? response.substring(start, end)
+                  : response.substring(start);
+  return response;
+}
+
+static const uint32_t CELLULAR_REGISTER_TIMEOUT_MS = 15000L;
+static const uint32_t PDP_SETTLE_DELAY_MS = 1500;
+static const uint32_t PRE_REINIT_DELAY_MS = 500;
+
+static bool waitForCellularRegistration(TinyGsm &modem)
+{
+  MG_LOG_I("[reconnect] Waiting for cellular network...");
+  if (!modem.waitForNetwork(CELLULAR_REGISTER_TIMEOUT_MS))
+  {
+    MG_LOG_E("[reconnect] Cellular network registration failed");
+    return false;
+  }
+  MG_LOG_I("[reconnect] Cellular network registered");
+  return true;
+}
+
+void MAGELLAN_MQTT_4G_BOARD::recoverCellular()
+{
+  MG_LOG_I("[recoverCellular] Handling reconnect...");
+  TinyGsm &modem = this->getGSMModem();
+  const IPAddress noIP(0, 0, 0, 0);
+
+  IPAddress localIP = modem.localIP();
+  MG_LOG_I("[Info] Local IP: %s", localIP.toString().c_str());
+
+  LTE_Signal_INFO lteSignalInfo = this->radioSignal.getDetailedSignal();
+  MG_LOG_I("[Info] LTE Signal Strength (RSSI): %d", lteSignalInfo.rssi);
+  MG_LOG_I("[Info] LTE Signal Quality (RSRQ): %d", lteSignalInfo.rsrq);
+  MG_LOG_I("[Info] LTE Signal RSRP: %d", lteSignalInfo.rsrp);
+  MG_LOG_I("[Info] LTE Signal SINR: %d", lteSignalInfo.sinr);
+
+  if (localIP != noIP)
+  {
+    MG_LOG_I("[recoverCellular Check] Modem has valid IP.");
+    return;
+  }
+
+  if (!waitForCellularRegistration(modem))
+  {
+    return;
+  }
+
+  // gprsConnect() closes any stale PDP context first, so it also fixes "connected but 0.0.0.0".
+  MG_LOG_I("[reconnect] Connecting PDP...");
+  if (!modem.gprsConnect(_apn))
+  {
+    MG_LOG_E("[reconnect] PDP connection failed");
+    return;
+  }
+  delay(PDP_SETTLE_DELAY_MS);
+
+  localIP = modem.localIP();
+  MG_LOG_I("[reconnect] IP: %s", localIP.toString().c_str());
+  if (localIP == noIP)
+  {
+    MG_LOG_E("[reconnect] SIM7600E Recovery Second Check failed, IP is 0.0.0.0");
+    return;
+  }
+
+  MG_LOG_I("[reconnect] GPRS connected");
+  delay(PRE_REINIT_DELAY_MS);
+  this->reinitializeGSM();
+  if (!modem.isNetworkConnected())
+  {
+    waitForCellularRegistration(modem);
+  }
+}
+
+//# Backup
+// void MAGELLAN_MQTT_4G_BOARD::recoverCellular()
+// {
+//   MG_LOG_I("[recoverCellular] Handling reconnect...");
+//   TinyGsm &_modem = this->getGSMModem();
+//   IPAddress localIP = _modem.localIP();
+//   MG_LOG_I("[Info] Local IP: %s", localIP.toString().c_str());
+
+//   LTE_Signal_INFO lteSignalInfo = this->radioSignal.getDetailedSignal();
+//   MG_LOG_I("[Info] LTE Signal Strength (RSSI): %d", lteSignalInfo.rssi);
+//   MG_LOG_I("[Info] LTE Signal Quality (RSRQ): %d", lteSignalInfo.rsrq);
+//   MG_LOG_I("[Info] LTE Signal RSRP: %d", lteSignalInfo.rsrp);
+//   MG_LOG_I("[Info] LTE Signal SINR: %d", lteSignalInfo.sinr);
+
+//   if (localIP == IPAddress(0, 0, 0, 0))
+//   {
+//     // MG_LOG_D("=== SIM7600E Recovery Check ===");
+//     // MG_LOG_D("Network: %s", _modem.isNetworkConnected() ? "YES" : "NO");
+//     // MG_LOG_D("GPRS: %s", _modem.isGprsConnected() ? "YES" : "NO");
+//     // MG_LOG_D("IP: %s", localIP.toString().c_str());
+//     // MG_LOG_D("CSQ: %d", _modem.getSignalQuality());
+
+//     MG_LOG_I("[reconnect] Waiting for cellular network...");
+
+//     if (!_modem.waitForNetwork(30000L))
+//     {
+//       MG_LOG_E("[reconnect] Cellular network registration failed");
+//       return;
+//     }
+
+//     MG_LOG_I("[reconnect] Cellular network registered");
+
+//     if (!_modem.isGprsConnected())
+//     {
+//       MG_LOG_I("[reconnect] Connecting PDP...");
+
+//       if (!_modem.gprsConnect(_apn))
+//       {
+//         MG_LOG_E("[reconnect] PDP connection failed");
+//         return;
+//       }
+//       // Let the PDP context settle before any DNS/TCP attempt reuses it,
+//       // same as the library's own post-gprsConnect delay.
+//       delay(1500);
+//     }
+
+//     MG_LOG_I("[reconnect] GPRS connected");
+//     IPAddress _localIP = _modem.localIP();
+//     MG_LOG_I("[reconnect] IP: %s", _localIP.toString().c_str());
+
+//     if (_localIP != IPAddress(0, 0, 0, 0))
+//     {
+//       // MG_LOG_D("=== SIM7600E Recovery Second Check ===");
+//       // MG_LOG_D("Network: %s", _modem.isNetworkConnected() ? "YES" : "NO");
+//       // MG_LOG_D("GPRS: %s", _modem.isGprsConnected() ? "YES" : "NO");
+//       // MG_LOG_D("IP: %s", _modem.localIP().toString().c_str());
+//       // MG_LOG_D("CSQ: %d", _modem.getSignalQuality());
+
+//       delay(500);
+//       this->reinitializeGSM();
+
+//       if (!_modem.isNetworkConnected())
+//       {
+//         MG_LOG_I("[reconnect] Waiting for cellular network...");
+
+//         if (!_modem.waitForNetwork(30000L))
+//         {
+//           MG_LOG_E("[reconnect] Cellular network registration failed");
+//           return;
+//         }
+
+//         MG_LOG_I("[reconnect] Cellular network registered");
+//       }
+//     }
+//     else
+//     {
+//       MG_LOG_E("[reconnect] SIM7600E Recovery Second Check failed, IP is 0.0.0.0");
+//     }
+//   }
+//   // MG_LOG_D("[Info] Serving Cell: %s", this->printServingCell().c_str());
+//   IPAddress _localIP2 = _modem.localIP();
+//   if (_localIP2 != IPAddress(0, 0, 0, 0))
+//   {
+//     // MG_LOG_D("=== SIM7600E Recovery Second Check 2 ===");
+//     // MG_LOG_D("Network: %s", _modem.isNetworkConnected() ? "YES" : "NO");
+//     // MG_LOG_D("GPRS: %s", _modem.isGprsConnected() ? "YES" : "NO");
+//     // MG_LOG_D("IP: %s", _localIP2.toString().c_str());
+//     // MG_LOG_D("CSQ: %d", _modem.getSignalQuality());
+
+//     delay(500);
+//     this->reinitializeGSM();
+
+//     if (!_modem.isNetworkConnected())
+//     {
+//       MG_LOG_I("[handleReconnect 2] Waiting for cellular network...");
+
+//       if (!_modem.waitForNetwork(30000L))
+//       {
+//         MG_LOG_E("[handleReconnect 2] Cellular network registration failed");
+//         return;
+//       }
+
+//       MG_LOG_I("[handleReconnect 2] Cellular network registered");
+//     }
+//   }
+// }
+
 void MAGELLAN_MQTT_4G_BOARD::initGSM()
 {
   MG_LOG_I("# ==== USE AIS 4G BOARD MODE INIT GSM ====");
   this->initSerialModem();
+  // RESET FIRST
+  if (!waitForModemATReady(10, 500))
+  {
+    MG_LOG_I("[RESET]Modem not ready, waiting...");
+  }
+  else
+  {
+    MG_LOG_I("[RESET]Modem communication ready");
+  }
 
+#ifndef SKIP_RESET_AT_BOOT
+  MG_LOG_I_S(this->GSMModem.reset() ? "[RESET]Modem reset successfully" : "[RESET]Modem reset failed");
+  unsigned long prvMillis = millis();
+  while (millis() - prvMillis < 10000)
+  {
+    Serial.print(F("."));
+    delay(100);
+  }
+  MG_LOG_I("[RESET]Modem restarted ready");
+  _serialAtStarted = false;
+#else
+  MG_LOG_I("[RESET]Skipping modem reset at boot");
+#endif // !SKIP_RESET_MODULE_AT_BOOT
+
+  this->initSerialModem();
   // On ESP32 warm reset, SIM7600 can still be alive; avoid unnecessary power toggles.
-  if (!waitForModemATReady(3, 300))
+  // On a full board power-cycle (unplug/replug), the modem cold-boots alongside the ESP32
+  // and can take several seconds before it accepts AT - give it that time first, otherwise
+  // this hard-cuts VBAT mid-bootup on nearly every cold start and makes things slower/flakier.
+  if (!waitForModemATReady(10, 500))
   {
     MG_LOG_I("Modem not responding, toggling power key...");
     this->powerModem();
     // SIM7600 may need several seconds to boot and accept AT after PWRKEY pulse.
-    delay(2500);
+    delay(2000);
     this->initSerialModem();
   }
 
@@ -308,6 +611,15 @@ void MAGELLAN_MQTT_4G_BOARD::initGSM()
   this->connectModem();
   _getRadio();
 
+  TinyGsm &_modem = this->GSMModem.getModem();
+  MG_LOG_I("[NETWORK] Local IP: %s", _modem.localIP().toString().c_str());
+#ifndef SKIP_RESOLVE_DOMAIN_AT_BOOT
+  IPAddress IPbuff;
+  bool resolveDonmain = this->resolveDomain(_host_production, IPbuff);
+  MG_LOG_I_S(resolveDonmain ? "[NETWORK][DNS] Domain resolved successfully" : "[NETWORK][DNS] Domain resolved failed");
+  MG_LOG_I("[NETWORK][DNS] Resolved IP: %s", IPbuff.toString().c_str());
+#endif
+
   NetworkModuleMode mode = this->GSMModem.getNetworkMode();
   this->currentPreferedNetworkMode = mode;
   Serial.print(F("NetworkBand Mode: "));
@@ -315,11 +627,12 @@ void MAGELLAN_MQTT_4G_BOARD::initGSM()
   Serial.println(this->GSMModem.networkModeToString(mode).c_str());
   MG_LOG_I("#==============================================");
 }
-
 void MAGELLAN_MQTT_4G_BOARD::begin(MagellanSetting _setting)
 {
   this->initGSM();
   this->coreMQTT->prefixClient = "4G_TINY_B_";
+  this->onReconnect([]() {});
+  this->registerReconnectContinueHook();
 #ifdef BYPASS_REQTOKEN
   if (_setting.ThingToken != "null" && _setting.ThingToken.length() > 25)
   {
@@ -394,9 +707,6 @@ void MAGELLAN_MQTT_4G_BOARD::begin(MagellanSetting _setting)
   }
 
   this->pubstate();
-  this->onReconnect([this](){
-    this->reinitializeGSM();
-  });
 }
 
 void MAGELLAN_MQTT_4G_BOARD::pubstate()
@@ -428,7 +738,6 @@ void MAGELLAN_MQTT_4G_BOARD::Centric::begin(MagellanSetting _setting)
   this->parent->initGSM();
   this->parent->coreMQTT->prefixClient = "4G_TINY_B_";
   this->parent->connectModem();
-
   if (_setting.ThingIdentifier == "null" || _setting.ThingSecret == "null")
   {
     _setting.ThingIdentifier = _modem.getSimCCID();
@@ -442,7 +751,8 @@ void MAGELLAN_MQTT_4G_BOARD::Centric::begin(MagellanSetting _setting)
     MG_LOG_I_S("IMEI : " + _setting.IMEI);
     setting = _setting;
   }
-
+  this->parent->onReconnect([this]()
+                            { this->parent->recoverCellular(); });
   // Validate credentials
   if (coreMQTT->CheckString_isDigit(setting.ThingIdentifier) && coreMQTT->CheckString_isDigit(setting.ThingSecret))
   {
@@ -470,9 +780,6 @@ void MAGELLAN_MQTT_4G_BOARD::Centric::begin(MagellanSetting _setting)
   }
 
   this->parent->pubstate();
-  this->parent->onReconnect([this](){
-    this->parent->reinitializeGSM();
-  });
 }
 
 int16_t MAGELLAN_MQTT_4G_BOARD::getSignalStrength()
@@ -681,6 +988,21 @@ LTE_Signal_INFO MAGELLAN_MQTT_4G_BOARD::SignalAnalysis::getDetailedSignal()
         sig.rsrp = tokens[11].toInt() / 10; // RSRP
         sig.rssi = tokens[12].toInt() / 10; // RSSI
         sig.sinr = tokens[13].toInt() / 10; // SINR
+
+        // 0x033A
+        sig.tac = strtoul(tokens[3].c_str(), nullptr, 0);
+
+        // PCI
+        sig.pci = tokens[5].toInt();
+        // Cell ID
+        sig.cellId = strtoul(tokens[4].c_str(), nullptr, 10);
+        // 520-03
+        int dash = tokens[2].indexOf('-');
+        if (dash > 0)
+        {
+          sig.mcc = tokens[2].substring(0, dash);
+          sig.mnc = tokens[2].substring(dash + 1);
+        }
       }
     }
   }
@@ -748,12 +1070,27 @@ String MAGELLAN_MQTT_4G_BOARD::ConnectivityModem::networkModeToString(NetworkMod
   }
 }
 
+bool MAGELLAN_MQTT_4G_BOARD::ConnectivityModem::reset()
+{
+  TinyGsm &modem = this->parent->getGSMModem();
+  modem.sendAT("+CRESET");
+  String response;
+  int8_t status = modem.waitResponse(5000L, response);
+  // response.trim();
+  MG_LOG_I("[ConnectivityModem]Modem RESET:");
+  MG_LOG_I_S(response);
+  if (response.indexOf("OK") != -1)
+    return true;
+  return false;
+}
+
 void MAGELLAN_MQTT_4G_BOARD::ConnectivityModem::begin()
 {
   this->parent->initGSM();
 }
 void MAGELLAN_MQTT_4G_BOARD::ConnectivityModem::handle()
 {
+  // MG_LOG_I("[ConnectivityModem]Handling modem...");
   this->parent->checkModem();
 }
 TinyGsmClient &MAGELLAN_MQTT_4G_BOARD::ConnectivityModem::getClient()
@@ -772,37 +1109,64 @@ void MAGELLAN_MQTT_4G_BOARD::setManualToken(String token_)
 }
 #endif
 
-static short _reconn_counter = 0;
 void MAGELLAN_MQTT_4G_BOARD::reinitializeGSM()
 {
-  _reconn_counter++;
-  const int max_reconn_attempts = 5;
-  if (_reconn_counter > max_reconn_attempts) //# 5 times
+  TinyGsm &_modem = this->getGSMModem();
+  for (int i = 0; i < 15; i++) //
   {
-    MG_LOG_I("[reinitializeGSM]Reconnection attempts exceeded %d times. ReInitializing GSM...", max_reconn_attempts);
-    this->initGSM();
-    _reconn_counter = 0;
+    if (_modem.testAT(1000))
+    {
+      MG_LOG_I("[reinitializeGSM]Modem responded by command. [%d]", i + 1);
+      break;
+    }
+    delay(500);
   }
+  MG_LOG_I("[reinitializeGSM]Reinitializing GSM...");
+  this->initGSM();
 }
+// Registers the coreMQTT hook exactly once. Safe to call multiple times
+// (from begin() and from onReconnect()) since the guard prevents re-wrapping
+int _countReconnect = 0;
 void MAGELLAN_MQTT_4G_BOARD::onReconnect(cb_on_reconnect cb_recon)
 {
-  cb_on_reconnect middle_cb_recon = cb_on_reconnect([this, cb_recon]()
-  {
-    this->reinitializeGSM();                                               
-    if (cb_recon)
+  // Store the user's callback regardless of call order relative to begin();
+  // the coreMQTT hook itself is registered separately (see registerReconnectHook()).
+  _userReconnectCb = cb_recon;
+  cb_on_reconnect middle_cb_recon = cb_on_reconnect([this]()
+                                                    {
+    this->recoverCellular();
+    _countReconnect++;
+    if (_countReconnect > MAX_RECONNECT_RST_MODEM){
+      _countReconnect = 0;
+      GSMModem.reset();
+      delay(5000);
+    }
+    if (this->_userReconnectCb)
     {
-      cb_recon();
+      this->_userReconnectCb();
     } });
   this->coreMQTT->onReconn(middle_cb_recon);
 }
 
+// Registers the coreMQTT continue-hook exactly once (see registerReconnectHook()).
+void MAGELLAN_MQTT_4G_BOARD::registerReconnectContinueHook()
+{
+  if (_reconnectContinueHookRegistered)
+  {
+    return;
+  }
+  cb_on_reconnect middle_cb_recon = cb_on_reconnect([this]()
+                                                    {
+    if (this->_userReconnectContinueCb)
+    {
+      this->_userReconnectContinueCb();
+    } });
+  this->coreMQTT->onReconnContinue(middle_cb_recon);
+  _reconnectContinueHookRegistered = true;
+}
+
 void MAGELLAN_MQTT_4G_BOARD::onReconnectingLoop(cb_on_reconnect cb_recon_continue)
 {
-  cb_on_reconnect middle_cb_recon = cb_on_reconnect([this, cb_recon_continue]()
-    {                                
-    if (cb_recon_continue)
-    {
-      cb_recon_continue();
-    }});
-  this->coreMQTT->onReconnContinue(middle_cb_recon);
+  _userReconnectContinueCb = cb_recon_continue;
+  this->registerReconnectContinueHook();
 }

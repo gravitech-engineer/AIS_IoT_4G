@@ -25,7 +25,7 @@ support esp32, esp8266
 
 Author:(POC Device Magellan team)
 Create Date: 25 April 2022.
-Modified: 22 dec 2025.
+Modified: 30 September 2026.
 */
 
 /*
@@ -157,7 +157,7 @@ void MAGELLAN_MQTT_TEMP::loop()
     this->coreMQTT->handleOTA(true);
   if (coreMQTT->isConnected() && !flag_cb_on_conn)
   {
-    if (func_on_disc != NULL)
+    if (func_on_conn != NULL)
     {
       func_on_conn();
     }
@@ -1529,6 +1529,7 @@ void MAGELLAN_MQTT_TEMP::onConnect(cb_on_connect cb_conn)
   if (cb_conn != NULL)
   {
     func_on_conn = cb_conn;
+    flag_cb_on_conn = false;
   }
 }
 void MAGELLAN_MQTT_TEMP::onReconnect(cb_on_reconnect cb_recon)
