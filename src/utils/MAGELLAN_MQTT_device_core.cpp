@@ -1329,23 +1329,16 @@ MAGELLAN_MQTT_device_core::MAGELLAN_MQTT_device_core(Client &client)
   attr.ClientNET = *&newClient;
   attr.mqtt_client = new PubSubClient(*attr.ClientNET);
   this->client = *&attr.mqtt_client;
-  // duplicate_subs_list = NULL;
 }
 
 MAGELLAN_MQTT_device_core::MAGELLAN_MQTT_device_core()
 {
+  // Never used directly: only exists to satisfy MAGELLAN_MQTT_TEMP's implicit base-subobject construction.
   ensureJsonDocPointersReady();
   prev_time = 0;
   now_time = millis();
   HB_prev_time = 0;
   HB_now_time = millis();
-
-  attr.clientNetInterface = useGSMClient;
-  this->gsm_client = new GSMClient;
-  attr.ClientNET = *&gsm_client;
-  attr.mqtt_client = new PubSubClient(*attr.ClientNET);
-  this->client = *&attr.mqtt_client;
-  // duplicate_subs_list = NULL;
 }
 
 String MAGELLAN_MQTT_device_core::getHostName()
@@ -1411,18 +1404,18 @@ String getSignalStrengthCategory(int dBm)
   return "Unknown";
 }
 
-void getRadio()
-{
-  if (attr.clientNetInterface == useGSMClient)
-  {
-    MG_LOG_I("#========= Radio Quality information ==========");
-    int rssiNomalized = Network.getSignalStrength();
-    int rssiDbm = mapRSSIToDBm(rssiNomalized);
-    MG_LOG_I_S("Signal Strength: " + String(rssiNomalized));
-    MG_LOG_I_S("Signal Strength(Dbm): " + String(rssiDbm));
-    MG_LOG_I_S("Description: " + String(getSignalStrengthCategory(rssiDbm)));
-  }
-}
+// void getRadio()
+// {
+//   if (attr.clientNetInterface == useGSMClient)
+//   {
+//     MG_LOG_I("#========= Radio Quality information ==========");
+//     int rssiNomalized = Network.getSignalStrength();
+//     int rssiDbm = mapRSSIToDBm(rssiNomalized);
+//     MG_LOG_I_S("Signal Strength: " + String(rssiNomalized));
+//     MG_LOG_I_S("Signal Strength(Dbm): " + String(rssiDbm));
+//     MG_LOG_I_S("Description: " + String(getSignalStrengthCategory(rssiDbm)));
+//   }
+// }
 
 void MAGELLAN_MQTT_device_core::initialBoard()
 {
@@ -1440,7 +1433,7 @@ void MAGELLAN_MQTT_device_core::getBoardInfo()
   MG_LOG_D_S("ICCID: " + String(thingIden));
   MG_LOG_D_S("IMSI: " + String(thingSecret));
   MG_LOG_D_S("IMEI: " + String(imei));
-  getRadio();
+  // getRadio();
 }
 
 String MAGELLAN_MQTT_device_core::getICCID()
@@ -1637,6 +1630,35 @@ void MAGELLAN_MQTT_device_core::reconnectMagellan()
   while (!isConnected())
   {
     const int reconn_sec = 3;
+    // Skip futile MQTT connect attempts (and the failure counter/restart cascade below)
+    // while the underlying GPRS/cellular link is not up yet, e.g. right after power-on.
+    if (this->func_check_network_ready != nullptr && !this->func_check_network_ready())
+    {
+      MG_LOG_E_S("# Network not ready yet, waiting before MQTT connect attempt (" + String(reconn_sec) + "s)");
+      unsigned long waitStart = millis();
+      while (millis() - waitStart < reconn_sec * 1000UL)
+      {
+        if (this->func_on_recon_continue != nullptr)
+        {
+          this->func_on_recon_continue();
+        }
+        delay(10);
+      }
+        if (this->func_on_recon != nullptr)
+        {
+          this->func_on_recon();
+        }
+        recon_attempt++;
+#ifdef USE_ATTEMPT_LIMIT
+        if (recon_attempt >= MAX_ATTEMPT_RECONNECT)
+        {
+          MG_LOG_I_S(" attempt to connect more than " + String(MAX_ATTEMPT_RECONNECT) + " Restart Board");
+          ESP.restart();
+        }
+#endif
+      // }
+      // continue;
+    }
     srand(time(NULL));
     int randnum = rand() % 10000;   // generate number concat in Client id
     int randnum_2 = rand() % 10000; // generate number concat in Client id
@@ -1654,7 +1676,11 @@ void MAGELLAN_MQTT_device_core::reconnectMagellan()
     this->client->setServer(this->host.c_str(), this->port);
     this->client->setCallback(msgCallback_internalHandler);
     MG_LOG_I_S("Connecting Magellan on: " + String(this->host) + ", Port: " + String(this->port));
-    if (this->client->connect(client_idBuff.c_str(), this->thingIden.c_str(), this->thingSecret.c_str()))
+    // Open the socket ourselves with a short bounded timeout first; PubSubClient::connect()
+    // skips its own (75s default) connect() call once the underlying client reports connected,
+    // so this keeps a stuck/bad link from blocking each retry for a very long time.
+    boolean tcpPreConnectFailed = this->func_tcp_pre_connect != nullptr && !this->func_tcp_pre_connect(this->host, this->port, 15);
+    if (!tcpPreConnectFailed && this->client->connect(client_idBuff.c_str(), this->thingIden.c_str(), this->thingSecret.c_str()))
     {
       client_id = client_idBuff;
       MG_LOG_I_S("Client id: " + client_idBuff + " is connected");
@@ -1662,7 +1688,14 @@ void MAGELLAN_MQTT_device_core::reconnectMagellan()
     }
     else
     {
-      MG_LOG_E_S("failed, reconnect =" + String(this->client->state()) + " try again in " + String(reconn_sec) + " seconds");
+      if (tcpPreConnectFailed)
+      {
+        MG_LOG_E_S("failed, TCP socket open timed out, try again in " + String(reconn_sec) + " seconds");
+      }
+      else
+      {
+        MG_LOG_E_S("failed, reconnect =" + String(this->client->state()) + " try again in " + String(reconn_sec) + " seconds");
+      }
       if (this->func_on_recon != nullptr)
       {
         this->func_on_recon();
@@ -1835,7 +1868,7 @@ void MAGELLAN_MQTT_device_core::beginCustom(String _client_id, boolean builtInSe
     mySensor.begin();
   }
   delay(3000);
-  getRadio();
+  // getRadio();
   this->host = _host;
   this->port = _port;
   this->client_id = _client_id;
@@ -1876,7 +1909,7 @@ void MAGELLAN_MQTT_device_core::beginCentric()
   }
   MG_LOG_I("# Connect to Centric");
   delay(5000);
-  getRadio();
+  //  getRadio();
   this->host = hostCentric;
   this->port = mgPort;
   this->client_id = this->getICCID(); // auto_assigned Client ID with ThingIdent
@@ -1911,7 +1944,7 @@ void MAGELLAN_MQTT_device_core::begin(boolean builtInSensor)
     attr.useBuiltInSensor = builtInSensor;
     mySensor.begin();
   }
-  getRadio();
+  // getRadio();
   // delay(5000);
   for (int i = 0; i < 5000; i++)
   {
@@ -1965,7 +1998,7 @@ void MAGELLAN_MQTT_device_core::begin(String _client_id, boolean builtInSensor, 
     attr.useBuiltInSensor = builtInSensor;
     mySensor.begin();
   }
-  getRadio();
+  // getRadio();
   // delay(5000);
   for (int i = 0; i < 5000; i++)
   {

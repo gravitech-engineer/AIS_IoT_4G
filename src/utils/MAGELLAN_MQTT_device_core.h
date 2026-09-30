@@ -35,8 +35,6 @@ Released for private usage.
 #include "MAGELLAN_LOG.h"
 #include "../PubSubClient.h"
 #include "MAGELLAN_LIB_CONF.h"
-#include <SIM76xx.h>
-#include <GSMClient.h>
 #include <Wire.h>
 #include <SHT40.h>
 #include <Update.h>
@@ -186,12 +184,14 @@ typedef struct
 typedef std::function<void(void)> cb_on_disconnect;
 typedef std::function<void(void)> cb_on_connect;
 typedef std::function<void(void)> cb_on_reconnect;
+typedef std::function<bool(void)> cb_network_ready;
+typedef std::function<bool(String host, int port, int timeout_s)> cb_tcp_pre_connect;
 
 class MAGELLAN_MQTT_device_core
 {
 public:
   MAGELLAN_MQTT_device_core(Client &client); // for customize client internet interface
-  MAGELLAN_MQTT_device_core();               // for GSM client internet interface
+  MAGELLAN_MQTT_device_core();               // unused base subobject ctor required by MAGELLAN_MQTT_TEMP's private inheritance
   boolean flagToken = false;
   String prefixClient;
   String client_id;
@@ -328,10 +328,22 @@ public:
       this->func_on_recon_continue = cb_recon_continue;
     }
   }
+  // Injected by the board layer to report whether the underlying GPRS/network link is up.
+  // reconnectMagellan() uses this to avoid wasting MQTT connect attempts while offline.
+  void setNetworkReadyCheck(cb_network_ready cb_ready){
+    this->func_check_network_ready = cb_ready;
+  }
+  // Injected by the board layer to open the TCP socket with a short, bounded timeout
+  // (TinyGSM's default connect() timeout is 75s, which stalls reconnectMagellan() badly).
+  void setTcpPreConnect(cb_tcp_pre_connect cb_pre_connect){
+    this->func_tcp_pre_connect = cb_pre_connect;
+  }
 
 private:
   cb_on_reconnect func_on_recon;
   cb_on_reconnect func_on_recon_continue;
+  cb_network_ready func_check_network_ready = nullptr;
+  cb_tcp_pre_connect func_tcp_pre_connect = nullptr;
   int _default_bufferSize = 1024;                                  // add on
   void checkConnection();                                          //
   void getEndPoint();                                              // get end point from centric
@@ -354,7 +366,6 @@ private:
   int limit_attempt = 11;    // 11 -> for atempt 10 request token
   int cnt_attempt = 0;       //
   int recon_attempt = 0;
-  int MAXrecon_attempt = MAX_ATTEMPT_RECONNECT;
   unsigned long prev_time;
   unsigned long now_time;
   unsigned long threshold_ms;
@@ -381,7 +392,6 @@ private:
 
 protected:
   PubSubClient *client = NULL;
-  GSMClient *gsm_client = NULL;
 };
 
 #endif

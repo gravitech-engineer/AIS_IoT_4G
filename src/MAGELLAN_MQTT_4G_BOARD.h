@@ -25,7 +25,7 @@ support esp32, esp8266
 
 Author:(POC Device Magellan team)
 Create Date: 25 April 2022.
-Modified: 22 dec 2025.
+Modified: 30 September 2026.
 */
 
 /*
@@ -62,13 +62,18 @@ struct LTE_Signal_INFO
   int rsrp = 999;
   int rssi = 999;
   int sinr = 999;
+  uint32_t tac = 0;
+  uint32_t cellId = 0;
+  int pci = -1; // Physical Cell ID
+  String mcc = "";
+  String mnc = "";
 };
 
 enum class NetworkModuleMode : int
 {
   Automatic = 2,      // Auto (2G/3G/4G)
-  GSM_2G_Only = 13,   // 2G only
-  WCDMA_3G_Only = 14, // 3G only
+  GSM_2G_Only = 13,   // 2G only (NOT RECOMMENDED)
+  WCDMA_3G_Only = 14, // 3G only (NOT RECOMMENDED)
   LTE_4G_Only = 38,   // 4G only
 };
 
@@ -83,7 +88,10 @@ public:
 
   void checkModem();
   void handleModemMagellan(); // handle modem connection and reconnect mqtt when ppp connected
-  void initGSM();             // initialize GSM modem is using function above running by correctly sequence.
+  void recoverCellular();
+  String printServingCell();
+  bool resolveDomain(const char *domain, IPAddress &ip);
+  void initGSM(); // initialize GSM modem is using function above running by correctly sequence.
   TinyGsmClient &getGSMClient();
   TinyGsm &getGSMModem();
   void onReconnect(cb_on_reconnect cb_recon_continue) override;
@@ -127,6 +135,7 @@ public:
     NetworkModuleMode getNetworkMode();
     void setNetworkMode(NetworkModuleMode mode);
     String networkModeToString(NetworkModuleMode mode);
+    bool reset(); //RESET MODEM (Module SIM7600E like push button but via AT command)
   } GSMModem;
 
   struct SignalAnalysis
@@ -167,11 +176,24 @@ public:
     float readTemperature();
     float readHumidity();
   } builtInSensor;
+  void reinitializeGSM();
 
 private:
   void pubstate();
   NetworkModuleMode currentPreferedNetworkMode = NetworkModuleMode::Automatic;
-  void reinitializeGSM();
+  // void reinitializeGSM();
+  // Stored separately from the coreMQTT hook so onReconnect()/onReconnectingLoop()
+  // can be called before or after begin() without losing the callback during the
+  // first blocking connect attempt inside begin().
+  cb_on_reconnect _userReconnectCb = nullptr;
+  // bool _reconnectHookRegistered = false;
+  // void registerReconnectHook();
+  cb_on_reconnect _userReconnectContinueCb = nullptr;
+  bool _reconnectContinueHookRegistered = false;
+  void registerReconnectContinueHook();
+  // isGprsConnected() alone can report true even after the assigned IP has
+  // silently reverted to 0.0.0.0 following a radio drop; this also requires a real IP.
+  bool isDataPathReady();
 
 protected:
   explicit MAGELLAN_MQTT_4G_BOARD(Client &client);

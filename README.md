@@ -119,7 +119,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 ### เตรียมโค้ดโปรแกรมเชื่อมต่อ Magellan platform
 
  * ติดตั้งไลบรารี AIS IoT 4G ตามหัวข้อ [การเริ่มต้นใช้งาน](#การเริ่มต้นใช้งาน)
- * ใช้ตัวอย่าง [reportSensorJSON](https://github.com/gravitech-engineer/AIS_IoT_4G/blob/main/examples/Magellan/MQTT/reportSensor/reportSensorJSON/reportSensorJSON.ino) ในการทดสอบส่งข้อมูลอุณหภูมิและความชื้นจากเซ็นเซอร์บนบอร์ด ขึ้น Magellan Platform
+ * ใช้ตัวอย่าง [reportSensorJSON](https://github.com/gravitech-engineer/AIS_IoT_4G/blob/main/examples/Magellan/ConnectPlatform/reportSensor/reportSensorJSON/reportSensorJSON.ino) ในการทดสอบส่งข้อมูลอุณหภูมิและความชื้นจากเซ็นเซอร์บนบอร์ด ขึ้น Magellan Platform
 
 ### สมัคร AIS Playground และ Magellan Platform
 
@@ -138,7 +138,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 
 ### แก้ไขโค้ดโปรแกรม
 
- * ไปที่โค้ดตัวอย่าง [reportSensorJSON](https://github.com/gravitech-engineer/AIS_IoT_4G/blob/main/examples/Magellan/MQTT/reportSensor/reportSensorJSON/reportSensorJSON.ino)
+ * ไปที่โค้ดตัวอย่าง [reportSensorJSON](https://github.com/gravitech-engineer/AIS_IoT_4G/blob/main/examples/Magellan/ConnectPlatform/reportSensor/reportSensorJSON/reportSensorJSON.ino)
  * อัพโหลดโปรแกรมลงบอร์ด
 
 ### ตรวจสอบผลการทำงานบน Magellan Platform
@@ -276,7 +276,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
 ใช้เชื่อมต่อ รับ-ส่งข้อมูลกับ Azure IoT Central มีคำสั่งเหมือนกับ `AzureIoTHub.h` ทุกประการ ยกเว้นตอนสร้างออปเจค ให้สร้างโดยใช้คำสั่ง `AzureIoTCentral iot;` แทน
  <a name="SDK_MAGELLAN"></a>
 
-![Library Version](https://img.shields.io/badge/SDK_Magellan_4G_Board_Version-2.0.0-green)
+![Library Version](https://img.shields.io/badge/SDK_Magellan_4G_Board_Version-2.0.2-green)
 <br>
 `Note: AIS_IoT_4G(1.3.7) ตั้งแต่ magellan sdk version 2.0.0 เป็นต้นไปจะมีการปรับเปลี่ยน Library ภายในที่ใช้ในการเชื่อมต่อ Internet GSM 4G เป็น TinyGSM แทน SIM76XX.h, SIMBase`
 ### `#include <MAGELLAN_SIM7600E_MQTT.h>`
@@ -313,7 +313,7 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
    * `LTE_Signal_INFO.band` ชื่อ LTE band เช่น `EUTRAN-band3`
    * `LTE_Signal_INFO.rsrq`, `LTE_Signal_INFO.rsrp`, `LTE_Signal_INFO.rssi` และ `LTE_Signal_INFO.sinr` ค่าคุณภาพและความแรงสัญญาณ
 
-**remark:** `setNetworkMode()` ส่งคำสั่งเปลี่ยนโหมดไปยังโมเด็มทันที แต่ควรรีสตาร์ตบอร์ดหรือโมเด็มหลังเปลี่ยนโหมดเพื่อให้การเชื่อมต่อเริ่มต้นใหม่อย่างถูกต้อง ดูตัวอย่าง [configPreferedBand](examples/Magellan/example_MQTT/configPreferedBand/configPreferedBand.ino)
+**remark:** `setNetworkMode()` ส่งคำสั่งเปลี่ยนโหมดไปยังโมเด็มทันที แต่ควรรีสตาร์ตบอร์ดหรือโมเด็มหลังเปลี่ยนโหมดเพื่อให้การเชื่อมต่อเริ่มต้นใหม่อย่างถูกต้อง ดูตัวอย่าง [configPreferedBand](examples/examples/Magellan/ConnectPlatform/configPreferedBand/configPreferedBand.ino)
  
  * `Information (Info)` 
    * `magel.Info.getBoardInfo()` ใช้อ่านหมายเลข Thing Identifier, Thing Secret ของโมดูลที่ Library ได้ทำการ Generate Thing Key ให้
@@ -778,54 +778,57 @@ AIS 4G Board เป็นบอร์ดที่รวมไมโครคอ�
      * [IoT_Central_sample](examples/Azure_IoT/WiFi/IoT_Central_sample/IoT_Central_sample.ino) - ตัวอย่างการอ่านค่าอุณหภูมิและความชื้นส่งค่าขึ้น Azure IoT Central ผ่าน WiFi (ESP32)
  * `Magellan Platform`
    * `getServerConfig`
-     * [getServerConfigJSON](examples/Magellan/MQTT/getServerConfig/getServerConfigJSON/getServerConfigJSON.ino) - ตัวอย่างการแสดงค่าที่อุปกรณ์ไปเรียกค่าที่เราทำการ Config ไว้บน Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
-     * [getServerConfigPlaintext](examples/Magellan/MQTT/getServerConfig/getServerConfigPlaintext/getServerConfigPlaintext.ino) - ตัวอย่างการแสดงค่าที่อุปกรณ์ไปเรียกค่าที่เราทำการ Config ไว้บน Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
+     * [getServerConfigJSON](examples/Magellan/ConnectPlatform/getServerConfig/getServerConfigJSON/getServerConfigJSON.ino) - ตัวอย่างการแสดงค่าที่อุปกรณ์ไปเรียกค่าที่เราทำการ Config ไว้บน Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
+     * [getServerConfigPlaintext](examples/Magellan/ConnectPlatform/getServerConfig/getServerConfigPlaintext/getServerConfigPlaintext.ino) - ตัวอย่างการแสดงค่าที่อุปกรณ์ไปเรียกค่าที่เราทำการ Config ไว้บน Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
    * `getControl`
-     * [getControlJSON](examples/Magellan/MQTT/getControl/getControlJSON/getControlJSON.ino) - ตัวอย่างการแสดงค่าที่ตัวอุปกรณ์ทำการ Control บน Dashboard ของ Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
-     * [getControlPlaintext](examples/Magellan/MQTT/getControl/getControlPlaintext/getControlPlaintext.ino) - ตัวอย่างการแสดงค่าที่ตัวอุปกรณ์ทำการ Control บน Dashboard ของ Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
+     * [getControlJSON](examples/Magellan/ConnectPlatform/getControl/getControlJSON/getControlJSON.ino) - ตัวอย่างการแสดงค่าที่ตัวอุปกรณ์ทำการ Control บน Dashboard ของ Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
+     * [getControlPlaintext](examples/Magellan/ConnectPlatform/getControl/getControlPlaintext/getControlPlaintext.ino) - ตัวอย่างการแสดงค่าที่ตัวอุปกรณ์ทำการ Control บน Dashboard ของ Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
    * `getControlLED`
-     * [getControlJSON_LED](examples/Magellan/MQTT/getControlLED/getControlJSON_LED/getControlJSON_LED.ino) - ตัวอย่างการแสดงค่าที่ตัวอุปกรณ์ทำการ Control LED บน Dashboard ของ Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
-     * [getControlPlaintext_LED](examples/Magellan/MQTT/getControlLED/getControlPlaintext_LED/getControlPlaintext_LED.ino) - ตัวอย่างแสดงค่าที่ตัวอุปกรณ์ทำการ Control LED บน Dashboard ของ Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
+     * [getControlJSON_LED](examples/Magellan/ConnectPlatform/getControlLED/getControlJSON_LED/getControlJSON_LED.ino) - ตัวอย่างการแสดงค่าที่ตัวอุปกรณ์ทำการ Control LED บน Dashboard ของ Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
+     * [getControlPlaintext_LED](examples/Magellan/ConnectPlatform/getControlLED/getControlPlaintext_LED/getControlPlaintext_LED.ino) - ตัวอย่างแสดงค่าที่ตัวอุปกรณ์ทำการ Control LED บน Dashboard ของ Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
    * `heartbeat`
-     * [heartbeat](examples/Magellan/MQTT/heartbeat/heartbeat.ino) - ตัวอย่างการส่งสัญญาณไปยัง Server รูปแบบ Heartbeat เพื่อบอกให้ Magellan Platform ทราบว่าอุปกรณ์ดังกล่าว มีการเชื่อมต่ออยู่ผ่าน 4G (SIM7600)
+     * [heartbeat](examples/Magellan/ConnectPlatform/heartbeat/heartbeat.ino) - ตัวอย่างการส่งสัญญาณไปยัง Server รูปแบบ Heartbeat เพื่อบอกให้ Magellan Platform ทราบว่าอุปกรณ์ดังกล่าว มีการเชื่อมต่ออยู่ผ่าน 4G (SIM7600)
    * `reportData`
-     * [reportDataJSON](examples/Magellan/MQTT/reportData/reportDataJSON/reportDataJSON.ino) - ตัวอย่างการส่งค่าตัวเลขแบบสุ่มขึ้นไปยัง Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
-     * [reportDataPlaintext](examples/Magellan/MQTT/reportData/reportDataPlaintext/reportDataPlaintext.ino) - ตัวอย่างการส่งค่าตัวเลขแบบสุ่มขึ้นไปยัง Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
+     * [reportDataJSON](examples/Magellan/ConnectPlatform/reportData/reportDataJSON/reportDataJSON.ino) - ตัวอย่างการส่งค่าตัวเลขแบบสุ่มขึ้นไปยัง Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
+     * [reportDataPlaintext](examples/Magellan/ConnectPlatform/reportData/reportDataPlaintext/reportDataPlaintext.ino) - ตัวอย่างการส่งค่าตัวเลขแบบสุ่มขึ้นไปยัง Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
    * `reportMultiDataType`
-     * [reportMultiDataType](examples/Magellan/MQTT/reportMultiDataType/reportMultiDataType.ino) - ตัวอย่างการส่งข้อมูลในรูปแบบหลายประเภท ได้แก่ เลขจำนวนเต็มบวก, เลขจำนวนเต็มลบ, ทศนิยม, ข้อความ, พิกัด GPS และ Boolean Magellan Platform ผ่าน 4G (SIM7600)
+     * [reportMultiDataType](examples/Magellan/ConnectPlatform/reportMultiDataType/reportMultiDataType.ino) - ตัวอย่างการส่งข้อมูลในรูปแบบหลายประเภท ได้แก่ เลขจำนวนเต็มบวก, เลขจำนวนเต็มลบ, ทศนิยม, ข้อความ, พิกัด GPS และ Boolean Magellan Platform ผ่าน 4G (SIM7600)
    * `reportSensor`
-     * [reportSensorJSON](examples/Magellan/MQTT/reportSensor/reportSensorJSON/reportSensorJSON.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์บนอุปกรณ์ไปบน Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
-     * [reportSensorPlaintext](examples/Magellan/MQTT/reportSensor/reportSensorPlaintext/reportSensorPlaintext.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์บนอุปกรณ์ไปบน Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
+     * [reportSensorJSON](examples/Magellan/ConnectPlatform/reportSensor/reportSensorJSON/reportSensorJSON.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์บนอุปกรณ์ไปบน Magellan Platform ในรูปแบบ JSON ผ่าน 4G (SIM7600)
+     * [reportSensorPlaintext](examples/Magellan/ConnectPlatform/reportSensor/reportSensorPlaintext/reportSensorPlaintext.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์บนอุปกรณ์ไปบน Magellan Platform ในรูปแบบ Plain Text ผ่าน 4G (SIM7600)
    * `reportData with messageId`
-     * [reportMsgId](examples/Magellan/MQTT/reportWithMsgId/reportMsgId.ino) - ตัวอย่างการส่งค่าตัวขึ้นไปยัง Magellan Platform ด้วย MessageId
-     * [reportMsgIdReportSetting](examples/Magellan/MQTT/reportWithMsgId/reportMsgIdReportSetting.ino) - ตัวอย่างการส่งค่าตัวขึ้นไปยัง Magellan Platform ด้วย MessageId ผ่านการใช้ ReportSetting
-     * [reportRetransmit](examples/Magellan/MQTT/reportWithMsgId/reportRetransmit.ino) - ตัวอย่างการส่งค่าตัวขึ้นไปยัง Magellan Platform ด้วยการเปิดใช้งาน 
+     * [reportMsgId](examples/Magellan/ConnectPlatform/reportWithMsgId/reportMsgId.ino) - ตัวอย่างการส่งค่าตัวขึ้นไปยัง Magellan Platform ด้วย MessageId
+     * [reportMsgIdReportSetting](examples/Magellan/ConnectPlatform/reportWithMsgId/reportMsgIdReportSetting.ino) - ตัวอย่างการส่งค่าตัวขึ้นไปยัง Magellan Platform ด้วย MessageId ผ่านการใช้ ReportSetting
+     * [reportRetransmit](examples/Magellan/ConnectPlatform/reportWithMsgId/reportRetransmit.ino) - ตัวอย่างการส่งค่าตัวขึ้นไปยัง Magellan Platform ด้วยการเปิดใช้งาน 
    * `reportUserButton`
-     * [reportUserButton](examples/Magellan/MQTT/reportUserButton/reportUserButton.ino) - ตัวอย่างการใช้งานปุ่มกด (User Button) บนอุปกรณ์ โดยจะมีการทำงานร่วมกับ Magellan Platform ในส่วนของ Dashboard ผ่าน 4G (SIM7600)
+     * [reportUserButton](examples/Magellan/ConnectPlatform/reportUserButton/reportUserButton.ino) - ตัวอย่างการใช้งานปุ่มกด (User Button) บนอุปกรณ์ โดยจะมีการทำงานร่วมกับ Magellan Platform ในส่วนของ Dashboard ผ่าน 4G (SIM7600)
    * `reportWithTimestamp`
-     * [reportWithTimestamp](examples/Magellan/MQTT/reportWithTimestamp/reportWithTimestamp.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์พร้อม Timestamp บนอุปกรณไปบน Magellan Platform ผ่าน 4G (SIM7600)
+     * [reportWithTimestamp](examples/Magellan/ConnectPlatform/reportWithTimestamp/reportWithTimestamp.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์พร้อม Timestamp บนอุปกรณไปบน Magellan Platform ผ่าน 4G (SIM7600)
    * `saveClientConfig`
-     * [saveClientConfig](examples/Magellan/MQTT/saveClientConfig/saveClientConfig.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์พร้อม Timestamp บนอุปกรณไปบน Magellan Platform ผ่าน 4G (SIM7600)
+     * [saveClientConfig](examples/Magellan/ConnectPlatform/saveClientConfig/saveClientConfig.ino) - ตัวอย่างการส่งข้อมูลจากเซนเซอร์พร้อม Timestamp บนอุปกรณไปบน Magellan Platform ผ่าน 4G (SIM7600)
    * `getServerTime`
-     * [getServerTime](examples/Magellan/MQTT/getServerTime/getServerTime.ino) - ตัวอย่างการขอเวลา Timestamp จาก Server ของ Magellan Platform ผ่าน 4G (SIM7600)
+     * [getServerTime](examples/Magellan/ConnectPlatform/getServerTime/getServerTime.ino) - ตัวอย่างการขอเวลา Timestamp จาก Server ของ Magellan Platform ผ่าน 4G (SIM7600)
    * `gpsTime_Location`
-     * [gpsTime_Location](examples/Magellan/MQTT/gpsTime_Location/gpsTime_Location.ino) - ตัวอย่างการขอเวลา Timestamp จาก Location ใน GPS มาใช้งาน ผ่าน 4G (SIM7600)
+     * [gpsTime_Location](examples/Magellan/ConnectPlatform/gpsTime_Location/gpsTime_Location.ino) - ตัวอย่างการขอเวลา Timestamp จาก Location ใน GPS มาใช้งาน ผ่าน 4G (SIM7600)
    * `RS485_PZEM_016_reportDataTo_Magellan`
-     * [RS485_PZEM_016_reportDataTo_Magellan](examples/Magellan/MQTT/RS485_PZEM_016_reportDataTo_Magellan/RS485_PZEM_016_reportDataTo_Magellan.ino) - ตัวอย่างการอ่านเซนเซอร์ RS485 แล้วส่งค่าขึ้นไปบน Magellan Platform ผ่าน 4G (SIM7600)
+     * [RS485_PZEM_016_reportDataTo_Magellan](examples/Magellan/ConnectPlatform/RS485_PZEM_016_reportDataTo_Magellan/RS485_PZEM_016_reportDataTo_Magellan.ino) - ตัวอย่างการอ่านเซนเซอร์ RS485 แล้วส่งค่าขึ้นไปบน Magellan Platform ผ่าน 4G (SIM7600)
    * `WiFi`
-     * [ConnectWithESP32wifi](examples/Magellan/MQTT/ConnectWithESP32wifi/ConnectWithESP32wifi.ino) - ตัวอย่างการส่งค่าขึ้น Magellan Platform ผ่าน WiFi (ESP32)
+     * [ConnectWithESP32wifi](examples/Magellan/ConnectPlatform/ConnectWithESP32wifi/ConnectWithESP32wifi.ino) - ตัวอย่างการส่งค่าขึ้น Magellan Platform ผ่าน WiFi (ESP32)
    * `OTA`
-     * [autoUpdate](examples/Magellan/MQTT/OTA/autoUpdate/autoUpdate.ino) - ตัวอย่างการกำหนดให้อุปกรณ์ทำการอัพเดท Firmware อัตโนมัติ
-     * [manualUpdate](examples/Magellan/MQTT/OTA/manualUpdate/manualUpdate.ino) - ตัวอย่างการกำหนดให้อุปกรณ์ทำการอัพเดท Firmware ตามที่ผู้ใช้งานกำหนดเอง
-     * [utilityInformation](examples/Magellan/MQTT/OTA/utilityInformation/utilityInformation.ino) - ตัวอย่างการอ่านค่าข้อมูลการ OTA
+     * [autoUpdate](examples/Magellan/ConnectPlatform/OTA/autoUpdate/autoUpdate.ino) - ตัวอย่างการกำหนดให้อุปกรณ์ทำการอัพเดท Firmware อัตโนมัติ
+     * [manualUpdate](examples/Magellan/ConnectPlatform/OTA/manualUpdate/manualUpdate.ino) - ตัวอย่างการกำหนดให้อุปกรณ์ทำการอัพเดท Firmware ตามที่ผู้ใช้งานกำหนดเอง
+     * [utilityInformation](examples/Magellan/ConnectPlatform/OTA/utilityInformation/utilityInformation.ino) - ตัวอย่างการอ่านค่าข้อมูลการ OTA
    * `Network(TinyGSM)`
-     * [PreferedBand](examples/Magellan/example_MQTT/PreferedBand/PreferedBand.ino) - ตัวอย่างการอ่านและแสดงโหมดเครือข่ายของโมดูล 4G เช่น 2G, 3G, 4G และ Automatic
-     * [RadioSignal](examples/Magellan/example_MQTT/RadioSignal/RadioSignal.ino) - ตัวอย่างการอ่านและแสดงข้อมูลสัญญาณ LTE ได้แก่ Mode, Band, RSRQ, RSRP, RSSI และ SINR
-     * [configPreferedBand](examples/Magellan/example_MQTT/configPreferedBand/configPreferedBand.ino) - ตัวอย่างการบังคับให้โมดูลทำงานในโหมด LTE 4G Only และรีสตาร์ตบอร์ดหลังเปลี่ยนโหมด
+     * [PreferedBand](examples/examples/Magellan/ConnectPlatform/PreferedBand/PreferedBand.ino) - ตัวอย่างการอ่านและแสดงโหมดเครือข่ายของโมดูล 4G เช่น 2G, 3G, 4G และ Automatic
+     * [RadioSignal](examples/examples/Magellan/ConnectPlatform/RadioSignal/RadioSignal.ino) - ตัวอย่างการอ่านและแสดงข้อมูลสัญญาณ LTE ได้แก่ Mode, Band, RSRQ, RSRP, RSSI และ SINR
+     * [configPreferedBand](examples/examples/Magellan/ConnectPlatform/configPreferedBand/configPreferedBand.ino) - ตัวอย่างการบังคับให้โมดูลทำงานในโหมด LTE 4G Only และรีสตาร์ตบอร์ดหลังเปลี่ยนโหมด
+    * `AT Command`
+       * [AT Command](examples/examples/Magellan/ATCommand/ATCommand.ino) - ตัวอย่างการใช้งาน AT Command เพื่อเข้าถึงหรือสั่งงานเฉพาะผ่าน Uart
 >⚠️ Warning `ข้อควรระวังในการใช้งาน OTA ด้วยบอร์ด ESP8266 จำเป็นจะต้องทดสอบ Binary file (.bin) ของ firmware ก่อนใช้งาน OTA จริงเสมอเนื่องจากหาก Build Binary file (.bin) จากคนละบอร์ดเช่นใช้ binary file ของ ESP32 มาใช้ OTA เข้ายังบอร์ด ESP8266 อาจจะทำให้ firmware ดั่งเดิมที่ใช้งานได้เสียหายและไม่สามารถทำงานต่อได้จำเป็นต้องแก้ไขด้วยการ erase flash หรือ upload firmware ใหม่ผ่านสายเชื่อมโดยตรงแทน *แต่ในบน ESP32 ตัว standard library ได้มีการ validate board ใน Binary file ที่จะ OTA มาแล้วในระดับหนึ่ง แต่ทั้งนี้ก็ควรจะทดสอบก่อนใช้งาน OTA จริงเสมอเผื่อให้แน่ใจว่า firmware ใหม่ที่ OTA เข้าไปมีความเสถียรภาพพร้อมใช้งาน`
 ### ไลบรารีแนะนำให้ใช้งานร่วมกัน
 
- * [ArduinoHttpClient](https://github.com/arduino-libraries/ArduinoHttpClient) - ไลบรารีเชื่อมต่อ HTTP/HTTPS
+ * [ArduinoHttpClient](https://github.com/arduino-libraries/ArduinoHttpClient) - ไลบรารีเชื่อมต่อ HTTP
+ * [ESP_SSLClient](https://github.com/mobizt/ESP_SSLClient) - ไลบรารีเชื่อมต่อเสริม HTTP/HTTPS
 
 ### Dimension
 
