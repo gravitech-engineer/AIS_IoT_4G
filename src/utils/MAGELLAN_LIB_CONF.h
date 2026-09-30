@@ -61,6 +61,29 @@
 #define MAX_ATTEMPT_RECONNECT 10
 #endif
 
+// Max reconnect attempts reset module to recovery modem (default: 2)
+#ifndef MAX_RECONNECT_RST_MODEM
+#define MAX_RECONNECT_RST_MODEM 2
+#endif
+
+#ifndef SKIP_RESET_MODULE_AT_BOOT
+#define SKIP_RESET_MODULE_AT_BOOT 1
+#endif
+#if SKIP_RESET_MODULE_AT_BOOT
+#ifndef SKIP_RESET_AT_BOOT
+#define SKIP_RESET_AT_BOOT
+#endif
+#endif
+
+#ifndef SKIP_RESOLVE_DNS_AT_BOOT
+#define SKIP_RESOLVE_DNS_AT_BOOT 0
+#endif
+#if SKIP_RESOLVE_DNS_AT_BOOT
+#ifndef SKIP_RESOLVE_DOMAIN_AT_BOOT
+#define SKIP_RESOLVE_DOMAIN_AT_BOOT
+#endif
+#endif
+
 #if MAGELLAN_USE_ARDUINOJSON7
 #include <ArduinoJson.h>
 #else
