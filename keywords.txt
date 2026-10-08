@@ -22,13 +22,52 @@ Storage KEYWORD1
 #######################################
 
 begin	KEYWORD2
+beginAGPS	KEYWORD2
 
+checkModem	KEYWORD2
+connectModem	KEYWORD2
+disable	KEYWORD2
+disconnect	KEYWORD2
+
+getCurrentGPSData	KEYWORD2
 getCurrentCarrier	KEYWORD2
+getDetailedSignal	KEYWORD2
+getGSMClient	KEYWORD2
+getGSMModem	KEYWORD2
+getModem	KEYWORD2
+getClient	KEYWORD2
+getNetworkMode	KEYWORD2
+getRSSIQuality	KEYWORD2
 getSignalStrength	KEYWORD2
+getUnixTime	KEYWORD2
 getDeviceIP	KEYWORD2
 pingIP	KEYWORD2
 
 connect	KEYWORD2
+handle	KEYWORD2
+handleModemMagellan	KEYWORD2
+initGSM	KEYWORD2
+initSerialModem	KEYWORD2
+loop	KEYWORD2
+networkModeToString	KEYWORD2
+onReconnect	KEYWORD2
+onReconnectingLoop	KEYWORD2
+powerModem	KEYWORD2
+printServingCell	KEYWORD2
+readAltitude	KEYWORD2
+readCourse	KEYWORD2
+readLatitude	KEYWORD2
+readLocation	KEYWORD2
+readLongitude	KEYWORD2
+readSpeed	KEYWORD2
+recoverCellular	KEYWORD2
+reconnect	KEYWORD2
+reinitializeGSM	KEYWORD2
+resolveDomain	KEYWORD2
+reset	KEYWORD2
+setEndpoint	KEYWORD2
+setManualToken	KEYWORD2
+setNetworkMode	KEYWORD2
 
 available	KEYWORD2
 latitude	KEYWORD2
